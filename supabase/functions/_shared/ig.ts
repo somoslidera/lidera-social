@@ -2,7 +2,7 @@
 // API usada: "Instagram API with Instagram Login" (graph.instagram.com). Não precisa de Página do Facebook.
 import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-export const GRAPH = "https://graph.instagram.com/v21.0";
+export const GRAPH = "https://graph.instagram.com/v26.0";
 export const APP_ID = Deno.env.get("IG_APP_ID") || "";
 export const APP_SECRET = Deno.env.get("IG_APP_SECRET") || "";
 export const VERIFY_TOKEN = Deno.env.get("IG_WEBHOOK_VERIFY") || "";
