@@ -306,7 +306,7 @@ function palKey(e){if(e.key==='ArrowDown'){palIdx=Math.min(palIdx+1,palItens.len
 function palRun(i){const x=palItens[i];if(!x)return;fecharPal();x.run()}
 
 // ===================== HOJE =====================
-async function renderHoje(){const cid=S.conta.id,d=hoje();const [{data:acoes},{data:cv},{data:cm},{data:snap}]=await Promise.all([
+async function renderHoje(){const cid=S.conta.id,d=hoje();const [{data:acoes},{data:cv},cm,{data:snap}]=await Promise.all([
   sb.from('ig_acoes').select('*, ig_leads(username,nome,restaurante,etapa,fluxo)').eq('conta_id',cid).eq('data',d).order('bloco').order('criado_em'),
   sb.from('ig_conversas').select('nao_lidas').eq('conta_id',cid).gt('nao_lidas',0).eq('arquivada',false),
   sb.from('ig_comentarios').select('id',{count:'exact',head:true}).eq('conta_id',cid).eq('de_mim',false).eq('respondido',false).eq('oculto',false).is('parent_id',null),
