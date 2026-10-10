@@ -4,7 +4,12 @@
 //   POST -> grava comentário/mensagem, abre lead quando faz sentido e cria a ação na fila do dia.
 // Deploy: supabase functions deploy ig-webhook --project-ref fvcbxorfstqqeewocxkf --use-api --no-verify-jwt
 // Na Meta: Callback URL = https://fvcbxorfstqqeewocxkf.supabase.co/functions/v1/ig-webhook ; campos: comments, messages
-import { admin, APP_SECRET, CORS, graph, hoje, json, log, tokenDaConta, VERIFY_TOKEN } from "../_shared/ig.ts";
+import { admin, APP_SECRET, CORS, CRON_SECRET, graph, hoje, json, log, SUPABASE_URL, tokenDaConta, VERIFY_TOKEN } from "../_shared/ig.ts";
+
+// pede à ig-api para pesquisar/triar o lead e colocá-lo no fluxo (sem esperar a resposta)
+function pesquisarAsync(conta_id: string, username: string, fluxo: string, sinal: string) {
+  fetch(`${SUPABASE_URL}/functions/v1/ig-api/lead/pesquisar`, { method: "POST", headers: { "x-cron": CRON_SECRET, "Content-Type": "application/json" }, body: JSON.stringify({ conta_id, username, fluxo, sinal }) }).catch(() => {});
+}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
@@ -55,13 +60,14 @@ async function processar(body: Record<string, unknown>) {
       if (de_mim) continue;
       // conta o comentário na mídia
       await db.rpc("ig_inc_comentarios", { p_midia: v.media?.id }).then(() => {}, () => {});
-      // fluxo CP: lead + ação na fila (responder em público, depois direct)
+      // fluxo CP: lead com o comentário (para a resposta privada pela API) + entra no fluxo configurado
       const lead = await garantirLead(conta_id, v.from?.username || "", v.from?.id, "CP", `comentou: "${(v.text || "").slice(0, 80)}"`);
-      await db.from("ig_acoes").insert({
-        conta_id, lead_id: lead?.id, comentario_id: v.id, data: hoje(), bloco: 2, tipo: "responder_comentario",
-        titulo: `Responder @${v.from?.username} no post`, texto: v.text || "", origem: "webhook:comments",
-        url: `https://www.instagram.com/${v.from?.username}/`,
-      });
+      if (lead?.id) {
+        await db.from("ig_leads").update({ comentario_id: v.id }).eq("id", lead.id);
+        await db.from("ig_comentarios").update({ lead_id: lead.id }).eq("id", v.id);
+        if (lead.etapa === "novo" || lead.etapa === "frio") pesquisarAsync(conta_id, v.from?.username || "", "CP", `comentou: "${(v.text || "").slice(0, 80)}"`);
+        else await db.from("ig_acoes").insert({ conta_id, lead_id: lead.id, comentario_id: v.id, data: hoje(), bloco: 2, tipo: "responder_comentario", titulo: `Responder @${v.from?.username} no post`, texto: v.text || "", origem: "webhook:comments", url: `https://www.instagram.com/${v.from?.username}/` });
+      }
     }
     // --- mensagens ---
     for (const m of (entry.messaging as Array<Record<string, unknown>>) || []) {
@@ -100,6 +106,8 @@ async function processar(body: Record<string, unknown>) {
         const lead = await garantirLead(conta_id, username, outro, fluxo, tipo === "story_reply" ? "respondeu story" : "mandou direct");
         lead_id = lead?.id || lead_id;
         if (lead && lead.etapa === "ativado") await db.from("ig_leads").update({ etapa: "rmv", ultimo_toque: ts }).eq("id", lead.id);
+        // reação/resposta a story de quem ainda não está em conversa: entra no fluxo RS (1ª mensagem pode sair sozinha)
+        if (lead && (tipo === "story_reply" || tipo === "story_mention") && (lead.etapa === "novo" || lead.etapa === "frio")) pesquisarAsync(conta_id, username, "RS", "respondeu story");
       }
       await db.from("ig_conversas").upsert({
         id: conversa_id, conta_id, participante_id: outro,

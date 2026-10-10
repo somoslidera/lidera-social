@@ -9,7 +9,8 @@
 //   /ia/classificar_midias {conta_id}          categoriza posts no motor 3x2
 // Deploy: supabase functions deploy ig-api --project-ref fvcbxorfstqqeewocxkf --use-api --no-verify-jwt
 import { admin, CORS, CRON_SECRET, gemini, graph, graphPost, hoje, json, log, saudacao, SUPABASE_URL, tokenDaConta, usuarioAutorizado } from "../_shared/ig.ts";
-import { CADENCIA, ETAPAS, limiteDiario, PLAYBOOK_IA, STORY_CAPTURA } from "../_shared/playbook.ts";
+import { ETAPAS, limiteDiario, PLAYBOOK_IA, STORY_CAPTURA } from "../_shared/playbook.ts";
+import { BLOCO_POR_FLUXO, FLUXOS_PADRAO, Fluxo, Passo, preencher, temPlaceholder, TIPO_PARA_ACAO } from "../_shared/fluxos.ts";
 
 type Row = Record<string, unknown>;
 const db = admin();
@@ -37,6 +38,9 @@ Deno.serve(async (req) => {
       case "/ia/classificar_midias": return json(await classificarMidias(String(body.conta_id)));
       case "/ia/conteudo": return json(await criarConteudo(body));
       case "/publicar": return json(await publicar(body, user.email));
+      case "/fluxos/padrao": return json(FLUXOS_PADRAO);
+      case "/fluxos/executar": return json(await executarFluxos(String(body.conta_id || "")));
+      case "/fluxos/entrar": return json(await entrarNoFluxo(String(body.lead_id), user.email));
       default: return json({ erro: "rota desconhecida" }, 404);
     }
   } catch (e) {
@@ -242,15 +246,25 @@ async function pesquisarLead(conta_id: string, username: string, quem: string, e
   const tok = await tokenDaConta(conta_id);
   if (!tok) throw new Error("conta sem token");
   let perfil: Row = {};
-  try {
-    const j = await graph(conta_id, tok, { fields: `business_discovery.username(${username}){username,name,biography,website,followers_count,follows_count,media_count,profile_picture_url,media.limit(8){caption,like_count,comments_count,media_type,permalink,timestamp}}` });
-    perfil = j.business_discovery || {};
-  } catch (e) {
-    perfil = { erro: String(e).includes("2207013") || String(e).toLowerCase().includes("not found") ? "perfil não é business/creator ou não existe (business_discovery só lê contas profissionais)" : String(e).slice(0, 200) };
+  if (extra.perfil_texto) {
+    // texto da página do perfil (lido pelo navegador): bio, contagens, legendas recentes
+    perfil = { fonte: "pagina", texto: String(extra.perfil_texto).slice(0, 5000) };
+  } else {
+    try {
+      const j = await graph(conta_id, tok, { fields: `business_discovery.username(${username}){username,name,biography,website,followers_count,follows_count,media_count,profile_picture_url,media.limit(8){caption,like_count,comments_count,media_type,permalink,timestamp}}` });
+      perfil = j.business_discovery || {};
+    } catch (e) {
+      perfil = { erro: String(e).includes("nonexisting field") ? "business_discovery indisponível no login do Instagram; sem dados do perfil" : String(e).includes("2207013") || String(e).toLowerCase().includes("not found") ? "perfil não é business/creator ou não existe" : String(e).slice(0, 200) };
+    }
   }
   // IA: triagem + conexão + mensagem
   const fluxo = String(extra.fluxo || "NS");
+  const fx = await fluxoDaConta(conta_id, fluxo);
+  const passoMsg = fx.passos.find((p) => p.tipo === "mensagem");
   const prompt = `${PLAYBOOK_IA}
+
+MODELO DA PRIMEIRA MENSAGEM DESTE FLUXO (${fx.nome}); use como base, trocando [Nome], [restaurante], [conexao] e [pergunta factual] por conteúdo real do perfil:
+${passoMsg?.texto || "(modelo base de boas-vindas)"}
 
 TAREFA: triagem de ICP (nível 1) e rascunho da mensagem de ativação para um perfil que chegou pelo fluxo ${fluxo}.
 Dados do perfil (business_discovery do Instagram; se vier erro, use só o username e diga que precisa de pesquisa manual):
@@ -272,17 +286,10 @@ Responda SÓ JSON com:
   };
   let lead_id = ex?.id;
   if (ex) { await db.from("ig_leads").update(row).eq("id", ex.id); } else { const { data } = await db.from("ig_leads").insert(row).select("id").single(); lead_id = data?.id; }
-  // ações: reciprocidade + ativação (se passa)
+  // ações: vêm do fluxo configurado da conta (ou do padrão do playbook)
   if (ia.icp !== "nao_passa") {
-    const base = { conta_id, lead_id, data: hoje(), origem: `pesquisa:${fluxo}` };
-    await db.from("ig_acoes").insert([
-      { ...base, bloco: fluxo === "OB" ? 8 : 4, tipo: "seguir", titulo: `Reciprocidade: seguir @${username}, curtir 2 posts, reagir a 1 story`, url: `https://www.instagram.com/${username}/` },
-      ...(fluxo === "OB"
-        ? [{ ...base, bloco: 8, data: somaDias(hoje(), 1), tipo: "comentar", titulo: `Comentar 1 post de @${username} com valor (nunca "top!")`, url: `https://www.instagram.com/${username}/` },
-           { ...base, bloco: 8, data: somaDias(hoje(), 2), tipo: "ativar", titulo: `Ativar @${username} (mensagem de ativação)`, texto: ia.mensagem as string, url: `https://ig.me/m/${username}` }]
-        : [{ ...base, bloco: 4, tipo: "ativar", titulo: `Ativar @${username} (boas-vindas, modelo ${ia.modelo || "-"})`, texto: ia.mensagem as string, url: `https://ig.me/m/${username}` }]),
-    ]);
     await db.from("ig_acoes").update({ status: "feita", feita_em: new Date().toISOString(), feita_por: quem }).eq("lead_id", lead_id).eq("tipo", "triagem").eq("status", "pendente");
+    await entrarNoFluxo(String(lead_id), quem, ia.mensagem as string | undefined);
   } else {
     await db.from("ig_acoes").update({ status: "pulada", feita_em: new Date().toISOString(), feita_por: quem }).eq("lead_id", lead_id).eq("status", "pendente");
   }
@@ -401,6 +408,109 @@ async function publicar(body: Row, quem: string) {
   return { ok: true, media_id: pub.id };
 }
 
+// ======================= FLUXOS =======================
+async function fluxoDaConta(conta_id: string, codigo: string): Promise<Fluxo> {
+  const { data } = await db.from("ig_fluxos").select("*").eq("conta_id", conta_id).eq("codigo", codigo).maybeSingle();
+  if (data) return { codigo: data.codigo, nome: data.nome, descricao: data.descricao, ativo: data.ativo, so_icp: data.so_icp, passos: (data.passos || []) as Passo[] };
+  return FLUXOS_PADRAO.find((f) => f.codigo === codigo) || FLUXOS_PADRAO[3];
+}
+
+// Coloca o lead no fluxo dele: cria as ações dos passos do "dia 0" (reciprocidade, comentário público, 1ª mensagem).
+// Os follow-ups (dia > 0) nascem depois, pela fila do dia, só se o lead não responder.
+async function entrarNoFluxo(lead_id: string, quem: string, mensagemIA?: string) {
+  const { data: l } = await db.from("ig_leads").select("*").eq("id", lead_id).single();
+  if (!l) throw new Error("lead não encontrado");
+  const fx = await fluxoDaConta(l.conta_id, l.fluxo || "NS");
+  if (!fx.ativo) return { fluxo: fx.codigo, ativo: false };
+  if (fx.so_icp && l.icp === "nao_passa") return { fluxo: fx.codigo, pulado: "fora de ICP" };
+  const { data: ja } = await db.from("ig_acoes").select("passo_id").eq("lead_id", lead_id).not("passo_id", "is", null);
+  const feitos = new Set((ja || []).map((a) => a.passo_id));
+  const msgs = fx.passos.filter((p) => p.tipo === "mensagem");
+  const rows: Row[] = [];
+  let dia = 0, primeiraMsg = true;
+  for (const p of fx.passos) {
+    if (p.tipo === "mensagem" && !primeiraMsg) break; // follow-ups ficam para a fila
+    dia += p.tipo === "mensagem" && primeiraMsg ? 0 : (p.dia || 0);
+    if (feitos.has(p.id)) { if (p.tipo === "mensagem") primeiraMsg = false; continue; }
+    const tipo = TIPO_PARA_ACAO[p.tipo] || p.tipo;
+    const url = tipo === "ativar" ? `https://ig.me/m/${l.username}` : tipo === "reagir_story" ? `https://www.instagram.com/stories/${l.username}/` : `https://www.instagram.com/${l.username}/`;
+    let texto = p.texto ? preencher(p.texto, l, saudacao()) : "";
+    if (p.tipo === "mensagem") { if (mensagemIA && p.ia) texto = mensagemIA; primeiraMsg = false; }
+    if (p.tipo === "comentar" && l.comentario_id) {
+      rows.push({ conta_id: l.conta_id, lead_id, comentario_id: l.comentario_id, passo_id: p.id, automatico: !!p.automatico, data: somaDias(hoje(), dia), bloco: BLOCO_POR_FLUXO[fx.codigo] || 4, tipo: "responder_comentario", titulo: `${p.titulo}: @${l.username}`, texto: "", origem: `fluxo:${fx.codigo}:${p.id}`, url: `https://www.instagram.com/${l.username}/` });
+      continue;
+    }
+    rows.push({ conta_id: l.conta_id, lead_id, passo_id: p.id, automatico: !!p.automatico && p.tipo === "mensagem", data: somaDias(hoje(), dia), bloco: BLOCO_POR_FLUXO[fx.codigo] || 4, tipo, titulo: `${p.titulo}: @${l.username}`, texto, origem: `fluxo:${fx.codigo}:${p.id}`, url });
+  }
+  if (rows.length) await db.from("ig_acoes").insert(rows);
+  if (l.etapa === "novo") await db.from("ig_leads").update({ etapa: "aquecendo" }).eq("id", lead_id);
+  return { fluxo: fx.codigo, acoes: rows.length, mensagens_no_fluxo: msgs.length };
+}
+
+// Executa pela API oficial as ações marcadas como automáticas (cron a cada 15 min):
+//  - responder_comentario: resposta pública (IA)
+//  - ativar/followup com canal oficial: resposta privada ao comentário (até 7 dias) ou conversa já aberta no direct
+async function executarFluxos(conta_id: string) {
+  const ids = conta_id ? [conta_id] : ((await db.from("ig_contas").select("id").eq("ativo", true)).data || []).map((c) => c.id as string);
+  const out: Row = {};
+  for (const cid of ids) {
+    const tok = await tokenDaConta(cid);
+    if (!tok) { out[cid] = "sem token"; continue; }
+    const { data: conta } = await db.from("ig_contas").select("config,conectado_em").eq("id", cid).single();
+    const cfg = (conta?.config || {}) as Row;
+    if (cfg.auto === false) { out[cid] = "automático desligado"; continue; }
+    const inicio = (cfg.inicio as string) || String(conta?.conectado_em || "").slice(0, 10);
+    const dias = Math.max(0, Math.round((Date.now() - new Date(inicio).getTime()) / 864e5));
+    const limite = limiteDiario(dias, Number(cfg.max_dia) || 80);
+    const { count: enviadas } = await db.from("ig_acoes").select("id", { count: "exact", head: true }).eq("conta_id", cid).eq("data", hoje()).eq("status", "feita").eq("feita_por", "api").in("tipo", ["ativar", "followup"]);
+    let msgs = enviadas || 0;
+    const { data: acoes } = await db.from("ig_acoes").select("*, ig_leads(*)").eq("conta_id", cid).eq("status", "pendente").eq("automatico", true).lte("data", hoje()).order("criado_em").limit(30);
+    const r: Row = { comentarios: 0, mensagens: 0, sem_canal: 0, erros: 0 };
+    for (const a of acoes || []) {
+      const l = a.ig_leads as Row | null;
+      try {
+        if (a.tipo === "responder_comentario" && a.comentario_id) {
+          const ia = await sugerir("comentario", a.comentario_id);
+          await responderComentario(a.comentario_id, String(ia.resposta_publica || ""), "api");
+          await db.from("ig_acoes").update({ status: "feita", feita_em: new Date().toISOString(), feita_por: "api", texto: ia.resposta_publica }).eq("id", a.id);
+          r.comentarios = (r.comentarios as number) + 1; continue;
+        }
+        if (a.tipo === "ativar" || a.tipo === "followup") {
+          if (msgs >= limite) continue;
+          if (!a.texto || temPlaceholder(a.texto)) continue; // texto incompleto fica para a pessoa
+          if (l?.icp === "nao_passa") { await db.from("ig_acoes").update({ status: "pulada", feita_por: "api" }).eq("id", a.id); continue; }
+          let enviado = false;
+          // canal 1: conversa já aberta no direct
+          const { data: cv } = await db.from("ig_conversas").select("id,participante_id").eq("conta_id", cid).eq("lead_id", a.lead_id).maybeSingle();
+          if (cv?.participante_id) { await graphPost("me/messages", tok, { recipient: { id: cv.participante_id }, message: { text: a.texto } }); enviado = true; await registrarEnvio(cv.id, cid, a.texto); }
+          // canal 2: resposta privada ao comentário (válida por 7 dias)
+          else if (l?.comentario_id) {
+            const { data: c } = await db.from("ig_comentarios").select("criado_em").eq("id", l.comentario_id).maybeSingle();
+            if (c && Date.now() - new Date(c.criado_em).getTime() < 7 * 864e5) { await graphPost("me/messages", tok, { recipient: { comment_id: l.comentario_id }, message: { text: a.texto } }); enviado = true; }
+          }
+          if (!enviado) { r.sem_canal = (r.sem_canal as number) + 1; continue; } // fica na fila para a pessoa
+          msgs++;
+          const toques = Number(l?.toques || 0) + 1;
+          const fx = await fluxoDaConta(cid, String(l?.fluxo || "NS"));
+          const msgsFx = fx.passos.filter((p) => p.tipo === "mensagem");
+          const prox = msgsFx[toques];
+          await db.from("ig_acoes").update({ status: "feita", feita_em: new Date().toISOString(), feita_por: "api" }).eq("id", a.id);
+          await db.from("ig_leads").update({ etapa: "ativado", toques, ultimo_toque: new Date().toISOString(), proximo_toque: prox ? somaDias(hoje(), prox.dia || 2) : null, ...(prox ? {} : { etapa: "frio" }) }).eq("id", a.lead_id);
+          r.mensagens = (r.mensagens as number) + 1;
+          await log("acao", cid, { api: a.tipo, lead: l?.username, passo: a.passo_id });
+        }
+      } catch (e) { r.erros = (r.erros as number) + 1; await log("erro", cid, { onde: "executarFluxos", acao: a.id, erro: String(e).slice(0, 250) }); }
+    }
+    out[cid] = r;
+  }
+  return out;
+}
+async function registrarEnvio(conversa_id: string, conta_id: string, texto: string) {
+  const agora = new Date().toISOString();
+  await db.from("ig_mensagens").insert({ id: `api:${Date.now()}:${Math.random().toString(36).slice(2, 7)}`, conversa_id, conta_id, de_mim: true, texto, tipo: "texto", criado_em: agora, lido: true });
+  await db.from("ig_conversas").update({ ultima_msg: texto, ultima_em: agora, ultima_de_mim: true, nao_lidas: 0 }).eq("id", conversa_id);
+}
+
 // ======================= FILA DO DIA =======================
 async function gerarFila(conta_id: string, data: string) {
   if (!conta_id) throw new Error("conta_id obrigatório");
@@ -435,13 +545,14 @@ async function gerarFila(conta_id: string, data: string) {
   // 4) novos seguidores / leads novos: triagem (até 20)
   const { data: novosLeads } = await db.from("ig_leads").select("id,username,fluxo").eq("conta_id", conta_id).eq("etapa", "novo").in("fluxo", ["SC", "RS", "CP", "NS"]).order("criado_em", { ascending: false }).limit(20);
   for (const l of novosLeads || []) add({ bloco: 4, tipo: "triagem", lead_id: l.id, titulo: `Triagem de @${l.username} (${l.fluxo})`, texto: "60 segundos: dono? restaurante? ativo? Sinal de calor? Se passa, pesquisar e ativar.", origem: "rotina:triagem", url: `https://www.instagram.com/${l.username}/` });
-  // 5) follow-ups D+2 / D+5 / D+10
-  const { data: fups } = await db.from("ig_leads").select("id,username,nome,restaurante,toques,ultimo_toque,proximo_toque").eq("conta_id", conta_id).eq("etapa", "ativado").lte("proximo_toque", data).limit(40);
+  // 5) follow-ups: próximo passo de mensagem do fluxo do lead (só quem não respondeu)
+  const { data: fups } = await db.from("ig_leads").select("*").eq("conta_id", conta_id).eq("etapa", "ativado").lte("proximo_toque", data).limit(40);
   for (const l of fups || []) {
-    const t = Math.min(Math.max((l.toques || 1), 1), 3); // toques já dados: 1 => próximo é o 2
-    const c = CADENCIA[t - 1];
-    if (!c) continue;
-    add({ bloco: 5, tipo: "followup", lead_id: l.id, titulo: `${c.titulo}: @${l.username}`, texto: c.texto.replace(/\[Nome\]/g, l.nome || l.username).replace(/\[restaurante\]/g, l.restaurante || "restaurante"), origem: `rotina:followup${c.toque}`, url: `https://ig.me/m/${l.username}` });
+    const fx = await fluxoDaConta(conta_id, l.fluxo || "NS");
+    const msgs = fx.passos.filter((p) => p.tipo === "mensagem");
+    const prox = msgs[l.toques || 1];
+    if (!prox) continue;
+    add({ bloco: 5, tipo: "followup", lead_id: l.id, passo_id: prox.id, automatico: !!prox.automatico, titulo: `${prox.titulo}: @${l.username}`, texto: preencher(prox.texto || "", l, saudacao()), origem: `fluxo:${fx.codigo}:${prox.id}`, url: `https://ig.me/m/${l.username}` });
   }
   // 7) visita sincera: frios há 60+ dias e leads sem toque há 30 dias (até 25)
   const corte60 = somaDias(data, -60), corte30 = somaDias(data, -30);
