@@ -35,6 +35,8 @@ Deno.serve(async (req) => {
       case "/lead/pesquisar": return json(await pesquisarLead(String(body.conta_id), String(body.username), user.email, body));
       case "/ia/sugerir": return json(await sugerir(String(body.tipo), String(body.id)));
       case "/ia/classificar_midias": return json(await classificarMidias(String(body.conta_id)));
+      case "/ia/conteudo": return json(await criarConteudo(body));
+      case "/publicar": return json(await publicar(body, user.email));
       default: return json({ erro: "rota desconhecida" }, 404);
     }
   } catch (e) {
@@ -289,7 +291,9 @@ Responda SÓ JSON com:
 
 async function sugerir(tipo: string, id: string) {
   if (tipo === "comentario") {
-    const { data: c } = await db.from("ig_comentarios").select("*, ig_midias(legenda)").eq("id", id).single();
+    const { data: c0 } = await db.from("ig_comentarios").select("*").eq("id", id).single();
+    const { data: md } = c0?.midia_id ? await db.from("ig_midias").select("legenda").eq("id", c0.midia_id).maybeSingle() : { data: null };
+    const c = { ...c0, ig_midias: md };
     const prompt = `${PLAYBOOK_IA}
 TAREFA: um seguidor comentou num post do Charles. Escreva a resposta PÚBLICA (1 a 2 linhas, agrega valor, sem "top!", sem "obrigado" seco, pode terminar com uma pergunta curta) e um abridor de DIRECT (2 a 3 linhas, referência ao comentário dele, uma pergunta factual).
 Legenda do post: ${(c.ig_midias?.legenda || "").slice(0, 800)}
@@ -335,6 +339,66 @@ Responda SÓ JSON: {"<id>":"categoria", ...}`;
   let n = 0;
   for (const [id, cat] of Object.entries(ia)) { await db.from("ig_midias").update({ categoria: String(cat) }).eq("id", id); n++; }
   return { n };
+}
+
+// ======================= CRIAÇÃO DE CONTEÚDO (IA) =======================
+// body: { conta_id, modo: 'ideias'|'post'|'carrossel'|'reel'|'story'|'reescrever', tema?, categoria?, texto?, tom? }
+async function criarConteudo(body: Row) {
+  const conta_id = String(body.conta_id || "");
+  const { data: conta } = await db.from("ig_contas").select("username,biografia").eq("id", conta_id).maybeSingle();
+  const { data: tops } = await db.from("ig_midias").select("legenda,interacoes,alcance,categoria").eq("conta_id", conta_id).order("interacoes", { ascending: false, nullsFirst: false }).limit(5);
+  const base = `Você escreve para o Instagram do Charles (@${conta?.username || "charles.simon"}), consultor de restaurantes do Programa Lucro e Liberdade (gestão financeira e gestão de pessoas para donos de restaurante, self-service, a quilo, churrascaria, marmitaria, pizzaria, delivery). Público: donos de restaurante que faturam de 100 a 500 mil por mês, cansados, que faturam bem e sobra pouco.
+Tom: direto, de quem está na operação, português do Brasil falado, frases curtas, zero jargão de marketing, zero "você sabia que", no máximo 1 emoji por texto, nunca travessão. Dados reais do nicho quando possível (CMV saudável 30%, folha 25%, lucro mínimo 15%).
+Motor de conteúdo 3 por 2 (ciclo de 5 publicações): dor (dor nomeada: "Restaurante que fatura 300 mil e o dono tira 4 mil"), bastidor (caso real sem nome), ensino (como calcular CMV, o que olhar na folha, o erro de precificação do quilo), convite (Diagnóstico Individual Estratégico: 40 min por vídeo, sem custo, sai sabendo quanto vira lucro e os 3 maiores vazamentos), resultado (resultado de cliente com número).
+Posts que mais engajaram desta conta (para referência de estilo): ${JSON.stringify((tops || []).map((t) => ({ legenda: (t.legenda || "").slice(0, 200), interacoes: t.interacoes, categoria: t.categoria })))}
+`;
+  const modo = String(body.modo || "ideias");
+  const tema = String(body.tema || "");
+  const cat = String(body.categoria || "");
+  let tarefa = "";
+  if (modo === "ideias") tarefa = `Gere 6 ideias de conteúdo${cat ? ` da categoria "${cat}"` : " cobrindo o ciclo 3 por 2 (dor, bastidor, ensino, convite, resultado, mais 1 dor)"}${tema ? ` sobre: ${tema}` : ""}. Responda SÓ JSON: {"ideias":[{"categoria":"dor|bastidor|ensino|convite|resultado","formato":"post|carrossel|reel|story","titulo":"...","gancho":"primeira frase que para o dedo (até 12 palavras)","resumo":"2 linhas do que o conteúdo entrega"}]}`;
+  else if (modo === "post") tarefa = `Escreva um post (imagem única) ${cat ? `da categoria ${cat} ` : ""}sobre: ${tema}. Responda SÓ JSON: {"titulo":"...","gancho":"texto da imagem, até 10 palavras","legenda":"legenda completa de 6 a 10 linhas, com quebras de linha, terminando com uma pergunta ou CTA","cta":"...","hashtags":"8 a 12 hashtags do nicho, separadas por espaço"}`;
+  else if (modo === "carrossel") tarefa = `Escreva um carrossel de 7 a 9 slides ${cat ? `da categoria ${cat} ` : ""}sobre: ${tema}. Responda SÓ JSON: {"titulo":"...","gancho":"capa, até 10 palavras","roteiro":"Slide 1: ...\\nSlide 2: ...\\n(cada slide com título curto e 1 a 2 frases)","legenda":"legenda de 4 a 6 linhas","cta":"último slide","hashtags":"..."}`;
+  else if (modo === "reel") tarefa = `Escreva o roteiro de um reel de 30 a 45 segundos ${cat ? `da categoria ${cat} ` : ""}sobre: ${tema}. Responda SÓ JSON: {"titulo":"...","gancho":"os 3 primeiros segundos, falado","roteiro":"[0-3s] ...\\n[3-15s] ...\\n[15-35s] ...\\n[35-45s] CTA","legenda":"legenda de 3 a 5 linhas","cta":"...","hashtags":"..."}`;
+  else if (modo === "story") tarefa = `Crie uma sequência de 3 a 4 stories ${cat ? `da categoria ${cat} ` : ""}sobre: ${tema}. Um deles deve ser de captura (enquete, quiz ou caixinha) com a pergunta pronta. Responda SÓ JSON: {"titulo":"...","roteiro":"Story 1 (texto na tela + o que falar)...\\nStory 2...\\nStory 3 (CAPTURA: enquete/quiz/caixinha com as opções)...","legenda":"","cta":"...","hashtags":""}`;
+  else if (modo === "reescrever") tarefa = `Reescreva o texto abaixo no tom descrito, mantendo o sentido, mais curto e mais forte. Texto:\n${String(body.texto || "")}\nResponda SÓ JSON: {"legenda":"texto reescrito"}`;
+  const out = JSON.parse(await gemini(base + "\n" + tarefa + (body.tom ? `\nAjuste de tom pedido: ${body.tom}` : ""), { json: true, temp: 0.8 }));
+  return out;
+}
+
+// ======================= PUBLICAR NO INSTAGRAM =======================
+// body: { conta_id, planejado_id?, tipo: 'post'|'reel'|'carrossel', midia_url | midia_urls[], legenda }
+async function publicar(body: Row, quem: string) {
+  const conta_id = String(body.conta_id || "");
+  const tok = await tokenDaConta(conta_id);
+  if (!tok) throw new Error("conta sem token");
+  const legenda = String(body.legenda || "");
+  const tipo = String(body.tipo || "post");
+  let creation: string;
+  if (tipo === "carrossel") {
+    const urls = (body.midia_urls as string[]) || [];
+    if (urls.length < 2) throw new Error("carrossel precisa de 2 a 10 imagens");
+    const filhos: string[] = [];
+    for (const u of urls) { const c = await graphPost(`${conta_id}/media`, tok, { image_url: u, is_carousel_item: true }); filhos.push(c.id); }
+    creation = (await graphPost(`${conta_id}/media`, tok, { media_type: "CAROUSEL", children: filhos.join(","), caption: legenda })).id;
+  } else if (tipo === "reel") {
+    creation = (await graphPost(`${conta_id}/media`, tok, { media_type: "REELS", video_url: String(body.midia_url), caption: legenda, share_to_feed: true })).id;
+    // vídeo processa em segundo plano: espera até ficar FINISHED (máx ~90 s)
+    for (let i = 0; i < 18; i++) {
+      const st = await graph(creation, tok, { fields: "status_code,status" });
+      if (st.status_code === "FINISHED") break;
+      if (st.status_code === "ERROR") throw new Error("Instagram não processou o vídeo: " + JSON.stringify(st.status));
+      await new Promise((r) => setTimeout(r, 5000));
+    }
+  } else {
+    creation = (await graphPost(`${conta_id}/media`, tok, { image_url: String(body.midia_url), caption: legenda })).id;
+  }
+  const pub = await graphPost(`${conta_id}/media_publish`, tok, { creation_id: creation });
+  if (body.planejado_id) await db.from("ig_planejados").update({ status: "publicado", ig_media_id: pub.id, publicado_em: new Date().toISOString() }).eq("id", String(body.planejado_id));
+  await log("acao", conta_id, { tipo: "publicar", por: quem, media_id: pub.id, formato: tipo });
+  // puxa a mídia nova para a biblioteca
+  try { await syncMidias(conta_id, tok, false); } catch { /* o cron pega depois */ }
+  return { ok: true, media_id: pub.id };
 }
 
 // ======================= FILA DO DIA =======================
