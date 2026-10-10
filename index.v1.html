@@ -1,0 +1,317 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1D3573">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Lidera Social</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%231D3573'/%3E%3Ccircle cx='32' cy='32' r='14' fill='none' stroke='%23A48A57' stroke-width='5'/%3E%3Ccircle cx='45' cy='19' r='4' fill='%23A48A57'/%3E%3C/svg%3E">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<style>
+:root{--navy:#1D3573;--navy2:#142650;--gold:#A48A57;--gold2:#C4A974;--bg:#F4F5F8;--card:#fff;--txt:#17213A;--mut:#6B7489;--line:#E3E6EE;--ok:#2E8B57;--warn:#C97A1A;--bad:#C2413B;--hot:#E8553E;--r:14px;--sh:0 1px 2px rgba(20,38,80,.06),0 6px 18px rgba(20,38,80,.06)}
+@media(prefers-color-scheme:dark){:root:not([data-theme=light]){--bg:#0E1526;--card:#172039;--txt:#EEF1F8;--mut:#9AA4BF;--line:#263050;--sh:0 1px 2px rgba(0,0,0,.3)}}
+:root[data-theme=dark]{--bg:#0E1526;--card:#172039;--txt:#EEF1F8;--mut:#9AA4BF;--line:#263050;--sh:0 1px 2px rgba(0,0,0,.3)}
+*{box-sizing:border-box}html,body{margin:0;height:100%}
+body{font:16px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,sans-serif;background:var(--bg);color:var(--txt);-webkit-font-smoothing:antialiased}
+a{color:var(--gold);text-decoration:none}
+button{font:inherit;cursor:pointer;border:0;border-radius:10px;padding:10px 14px;background:var(--navy);color:#fff;font-weight:600}
+button.sec{background:transparent;color:var(--navy);border:1px solid var(--line)}
+:root[data-theme=dark] button.sec,:root:not([data-theme=light]) button.sec{color:var(--txt)}
+button.gold{background:var(--gold);color:#fff}button.ghost{background:transparent;color:var(--mut);padding:6px 8px}button.sm{padding:6px 10px;font-size:13px;border-radius:8px}
+button:disabled{opacity:.5;cursor:default}
+input,select,textarea{font:inherit;font-size:16px;width:100%;padding:11px 12px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--txt)}
+textarea{min-height:90px;resize:vertical}
+label{font-size:12px;color:var(--mut);display:block;margin:10px 0 4px;font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+.hide{display:none!important}
+#login{min-height:100%;display:grid;place-items:center;padding:24px;background:linear-gradient(160deg,var(--navy2),var(--navy))}
+#login .box{background:var(--card);border-radius:20px;padding:32px 28px;width:100%;max-width:380px;box-shadow:0 20px 60px rgba(0,0,0,.35)}
+.logo{display:flex;align-items:center;gap:10px;font-weight:800;letter-spacing:-.02em}
+.logo i{width:28px;height:28px;border-radius:8px;background:var(--navy);display:inline-grid;place-items:center}
+.logo i:after{content:"";width:12px;height:12px;border:3px solid var(--gold);border-radius:50%}
+.logo small{color:var(--gold);font-weight:600}
+#app{display:none;min-height:100%}
+header{position:sticky;top:0;z-index:20;background:var(--navy);color:#fff;padding:env(safe-area-inset-top) 0 0}
+header .bar{display:flex;align-items:center;gap:10px;padding:10px 14px}
+header .bar .logo{color:#fff;font-size:17px}
+header select{width:auto;background:rgba(255,255,255,.1);color:#fff;border-color:rgba(255,255,255,.2);padding:7px 10px;font-size:14px;border-radius:8px;max-width:170px}
+header select option{color:#000}
+.tabs{display:flex;gap:2px;overflow-x:auto;padding:0 8px 0;scrollbar-width:none}.tabs::-webkit-scrollbar{display:none}
+.tabs button{background:transparent;color:rgba(255,255,255,.7);padding:10px 12px;border-radius:0;border-bottom:3px solid transparent;font-weight:600;font-size:14px;white-space:nowrap;position:relative}
+.tabs button.on{color:#fff;border-bottom-color:var(--gold)}
+.tabs .badge{position:absolute;top:4px;right:2px;background:var(--hot);color:#fff;font-size:10px;border-radius:9px;padding:1px 5px;font-weight:700}
+main{padding:14px 14px calc(24px + env(safe-area-inset-bottom));max-width:1180px;margin:0 auto}
+.card{background:var(--card);border-radius:var(--r);box-shadow:var(--sh);padding:14px;margin-bottom:12px}
+.row{display:flex;gap:10px;align-items:center}.row.wrap{flex-wrap:wrap}.grow{flex:1;min-width:0}.right{margin-left:auto}
+h2{font-size:18px;margin:4px 0 10px}h3{font-size:15px;margin:0 0 6px}
+.mut{color:var(--mut)}.sm{font-size:13px}.xs{font-size:12px}.b{font-weight:700}
+.kpis{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}@media(min-width:720px){.kpis{grid-template-columns:repeat(4,1fr)}}
+.kpi{background:var(--card);border-radius:var(--r);box-shadow:var(--sh);padding:12px 14px}.kpi .v{font-size:26px;font-weight:800;letter-spacing:-.02em}.kpi .l{font-size:12px;color:var(--mut);text-transform:uppercase;letter-spacing:.04em;font-weight:600}.kpi .d{font-size:12px;margin-top:2px}
+.up{color:var(--ok)}.down{color:var(--bad)}
+.pill{display:inline-block;padding:2px 9px;border-radius:999px;font-size:12px;font-weight:600;background:var(--bg);color:var(--mut)}
+.pill.gold{background:rgba(164,138,87,.15);color:var(--gold)}.pill.hot{background:rgba(232,85,62,.14);color:var(--hot)}.pill.ok{background:rgba(46,139,87,.14);color:var(--ok)}.pill.navy{background:rgba(29,53,115,.12);color:var(--navy)}
+:root[data-theme=dark] .pill.navy,:root:not([data-theme=light]) .pill.navy{color:#AFC0F0}
+.acao{border-left:4px solid var(--line);padding-left:12px}
+.acao.b1,.acao.b6{border-color:var(--gold)}.acao.b2{border-color:var(--hot)}.acao.b3{border-color:var(--navy)}.acao.b4{border-color:#4F7FD9}.acao.b5{border-color:var(--warn)}.acao.b7{border-color:#7B61B8}.acao.b8{border-color:#3A9CA8}.acao.b9{border-color:var(--mut)}
+.acao.feita{opacity:.45}.acao .txt{white-space:pre-wrap;background:var(--bg);border-radius:10px;padding:10px;font-size:14px;margin:8px 0}
+.prog{height:8px;background:var(--line);border-radius:4px;overflow:hidden}.prog i{display:block;height:100%;background:linear-gradient(90deg,var(--gold),var(--gold2))}
+.list .it{display:flex;gap:10px;padding:10px 0;border-bottom:1px solid var(--line);cursor:pointer;align-items:flex-start}.list .it:last-child{border:0}
+.av{width:40px;height:40px;border-radius:50%;background:var(--navy);color:#fff;display:grid;place-items:center;font-weight:700;flex:none;overflow:hidden}.av img{width:100%;height:100%;object-fit:cover}
+.dot{width:9px;height:9px;border-radius:50%;background:var(--hot);flex:none;margin-top:6px}
+.thread{display:flex;flex-direction:column;gap:6px;padding:8px 0}
+.msg{max-width:82%;padding:9px 12px;border-radius:16px;font-size:15px;white-space:pre-wrap;background:var(--bg)}.msg.me{align-self:flex-end;background:var(--navy);color:#fff}.msg .t{display:block;font-size:10px;opacity:.6;margin-top:3px}
+.split{display:grid;gap:12px}@media(min-width:900px){.split{grid-template-columns:340px 1fr}.split.three{grid-template-columns:300px 1fr 300px}}
+.sheet{position:fixed;inset:0;background:rgba(10,16,34,.55);z-index:50;display:none;align-items:flex-end;justify-content:center}
+.sheet.on{display:flex}
+.sheet .in{background:var(--card);width:100%;max-width:640px;max-height:92vh;overflow:auto;border-radius:20px 20px 0 0;padding:18px 16px calc(18px + env(safe-area-inset-bottom))}
+@media(min-width:720px){.sheet{align-items:center}.sheet .in{border-radius:20px}}
+.grid{display:grid;gap:10px;grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}
+.post{background:var(--card);border-radius:12px;overflow:hidden;box-shadow:var(--sh);cursor:pointer}.post img{width:100%;aspect-ratio:1;object-fit:cover;display:block;background:var(--bg)}.post .m{padding:8px;font-size:12px;color:var(--mut)}
+.kanban{display:flex;gap:10px;overflow-x:auto;padding-bottom:8px}.col{flex:0 0 240px;background:var(--bg);border-radius:12px;padding:8px}.col h4{margin:4px 4px 8px;font-size:13px}.col .lead{background:var(--card);border-radius:10px;padding:8px 10px;margin-bottom:6px;box-shadow:var(--sh);cursor:pointer;font-size:14px}
+.chips{display:flex;gap:6px;flex-wrap:wrap}.chip{padding:6px 12px;border-radius:999px;border:1px solid var(--line);background:var(--card);font-size:13px;cursor:pointer}.chip.on{background:var(--navy);color:#fff;border-color:var(--navy)}
+table{width:100%;border-collapse:collapse;font-size:14px}td,th{padding:8px 6px;border-bottom:1px solid var(--line);text-align:left}th{font-size:12px;color:var(--mut);text-transform:uppercase}
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--txt);color:var(--bg);padding:10px 16px;border-radius:12px;font-size:14px;z-index:99;opacity:0;transition:.2s;pointer-events:none}.toast.on{opacity:1}
+.empty{text-align:center;color:var(--mut);padding:30px 10px}
+.spin{display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;animation:s .8s linear infinite;vertical-align:-2px}@keyframes s{to{transform:rotate(360deg)}}
+svg.chart{width:100%;height:120px}
+.meta{font-size:12px;color:var(--mut)}
+.bloco-h{display:flex;align-items:center;gap:8px;margin:16px 0 6px;font-size:13px;text-transform:uppercase;letter-spacing:.05em;color:var(--mut);font-weight:700}
+</style>
+</head>
+<body>
+<div id="login">
+  <div class="box">
+    <div class="logo" style="font-size:22px"><i></i>Lidera <small>Social</small></div>
+    <p class="mut sm" style="margin:6px 0 18px">Instagram do Charles e da Lidera: métricas, direct, comentários e a rotina de social selling em um lugar só.</p>
+    <label>E-mail</label><input id="lemail" type="email" autocomplete="username" inputmode="email">
+    <label>Senha</label><input id="lpass" type="password" autocomplete="current-password">
+    <button style="width:100%;margin-top:16px" onclick="login()">Entrar</button>
+    <p id="lerr" class="sm" style="color:var(--bad);min-height:20px;margin:10px 0 0"></p>
+  </div>
+</div>
+
+<div id="app">
+<header>
+  <div class="bar">
+    <div class="logo"><i></i>Lidera <small>Social</small></div>
+    <select id="selConta" onchange="trocarConta(this.value)"></select>
+    <button class="ghost right" onclick="sync()" title="Sincronizar agora" id="btnSync" style="color:#fff">↻</button>
+    <button class="ghost" onclick="toggleTema()" style="color:#fff">◐</button>
+    <button class="ghost" onclick="sair()" style="color:#fff">Sair</button>
+  </div>
+  <nav class="tabs" id="tabs">
+    <button data-t="hoje" onclick="aba('hoje')">Hoje<span class="badge hide" id="bHoje"></span></button>
+    <button data-t="inbox" onclick="aba('inbox')">Direct<span class="badge hide" id="bInbox"></span></button>
+    <button data-t="coment" onclick="aba('coment')">Comentários<span class="badge hide" id="bCom"></span></button>
+    <button data-t="leads" onclick="aba('leads')">Leads</button>
+    <button data-t="metricas" onclick="aba('metricas')">Métricas</button>
+    <button data-t="conteudo" onclick="aba('conteudo')">Conteúdo</button>
+    <button data-t="estrategia" onclick="aba('estrategia')">Estratégia</button>
+    <button data-t="contas" onclick="aba('contas')">Contas</button>
+  </nav>
+</header>
+<main id="main"></main>
+</div>
+
+<div class="sheet" id="sheet" onclick="if(event.target===this)fecharSheet()"><div class="in" id="sheetIn"></div></div>
+<div class="toast" id="toast"></div>
+
+<script>
+const SUPA_URL='https://fvcbxorfstqqeewocxkf.supabase.co';
+const SUPA_ANON='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ2Y2J4b3Jmc3RxcWVld29jeGtmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEyNzM5MjgsImV4cCI6MjA5Njg0OTkyOH0.X9gnZt535F1ASHpUaL24eEZysHHECwzfBwjaR4kVnyw';
+const FN=SUPA_URL+'/functions/v1';
+const sb=supabase.createClient(SUPA_URL,SUPA_ANON);
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmt=n=>n==null?'–':Number(n).toLocaleString('pt-BR');
+const pct=(a,b)=>b?Math.round(100*a/b)+'%':'–';
+const dtBR=d=>d?new Date(d).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'';
+const dBR=d=>d?new Date(d.length===10?d+'T12:00:00':d).toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'}):'';
+const hoje=()=>new Date().toLocaleDateString('en-CA',{timeZone:'America/Sao_Paulo'});
+const ETAPAS={novo:'Novo',aquecendo:'Aquecendo',ativado:'Ativado, sem resposta',rmv:'Em conversa (RMV)',desafio:'Desafio nomeado',escada:'Escada concluída',convite:'Convite feito',agendado_charles:'Agendado, Charles',agendado_guilherme:'Agendado, Guilherme',compareceu:'Compareceu',noshow:'No-show',frio:'Frio, reciclar',fora_icp:'Fora de ICP'};
+const FLUXOS={SC:'Story de captura',RS:'Reação em story',CP:'Comentário/curtida',NS:'Novo seguidor',VS:'Visita sincera',OB:'Outbound'};
+const FAIXAS={ate100:'Até 100 mil','100a300':'100 a 300 mil','300a500':'300 a 500 mil',acima500:'Acima de 500 mil'};
+const BLOCOS={1:'08:30 · Story de captura',2:'08:40 · Inbound: story, comentário e direct',3:'09:30 · Avançar conversas abertas',4:'10:30 · Novos seguidores: triagem e ativação',5:'11:15 · Follow-ups D+2, D+5, D+10',6:'14:00 · Segundo story + plantão',7:'14:30 · Visita sincera na base parada',8:'15:30 · Outbound: aquecimento e ativação',9:'16:30 · Registro e fechamento'};
+const METAS={resposta:{SC:[60,75],RS:[45,60],CP:[45,60],NS:[25,35],VS:[25,35],OB:[10,15]},rmv_desafio:50,desafio_escada:60,escada_convite:55,agendado_compareceu:70,diag_mes:[25,40]};
+let S={user:null,contas:[],conta:null,aba:'hoje',cache:{}};
+
+function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('on');clearTimeout(t._x);t._x=setTimeout(()=>t.classList.remove('on'),2600)}
+function toggleTema(){const r=document.documentElement;const cur=r.dataset.theme||(matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light');r.dataset.theme=cur==='dark'?'light':'dark';try{localStorage.setItem('tema',r.dataset.theme)}catch{}}
+try{const t=localStorage.getItem('tema');if(t)document.documentElement.dataset.theme=t}catch{}
+async function api(rota,body){const {data:{session}}=await sb.auth.getSession();const r=await fetch(FN+'/ig-api'+rota,{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+session.access_token},body:JSON.stringify(body||{})});const j=await r.json().catch(()=>({}));if(!r.ok||j.erro)throw new Error(j.erro||('HTTP '+r.status));return j}
+function copiar(t){navigator.clipboard?.writeText(t).then(()=>toast('Copiado. Cola no Instagram.'),()=>toast('Não consegui copiar'))}
+function abrirSheet(h){$('#sheetIn').innerHTML=h;$('#sheet').classList.add('on')}function fecharSheet(){$('#sheet').classList.remove('on')}
+
+// ---------- auth ----------
+async function login(){$('#lerr').textContent='';const {error}=await sb.auth.signInWithPassword({email:$('#lemail').value.trim(),password:$('#lpass').value});if(error){$('#lerr').textContent='E-mail ou senha inválidos.';return}iniciar()}
+async function sair(){await sb.auth.signOut();location.reload()}
+$('#lpass').addEventListener('keydown',e=>{if(e.key==='Enter')login()});
+async function iniciar(){const {data:{session}}=await sb.auth.getSession();if(!session){$('#login').style.display='grid';$('#app').style.display='none';return}
+  S.user=session.user;const {data:ac,error}=await sb.from('ig_acesso').select('email').limit(1);
+  if(error){$('#lerr').textContent='Sem acesso ao Lidera Social. Peça para o admin liberar seu e-mail.';await sb.auth.signOut();return}
+  $('#login').style.display='none';$('#app').style.display='block';await carregarContas();
+  const q=new URLSearchParams(location.search);if(q.get('conectado')){toast('@'+q.get('conectado')+' conectado! Sincronizando…');history.replaceState({},'',location.pathname)}
+  realtime();aba(S.contas.length?'hoje':'contas')}
+async function carregarContas(){const {data}=await sb.from('ig_contas').select('*').order('conectado_em');S.contas=data||[];const sel=$('#selConta');sel.innerHTML=S.contas.map(c=>`<option value="${c.id}">@${esc(c.username)}</option>`).join('')||'<option>sem conta</option>';
+  let salva=null;try{salva=localStorage.getItem('conta')}catch{}S.conta=S.contas.find(c=>c.id===salva)||S.contas[0]||null;if(S.conta)sel.value=S.conta.id;badges()}
+function trocarConta(id){S.conta=S.contas.find(c=>c.id===id);try{localStorage.setItem('conta',id)}catch{}S.cache={};aba(S.aba)}
+async function badges(){if(!S.conta)return;const cid=S.conta.id;const [a,i,c]=await Promise.all([
+  sb.from('ig_acoes').select('id',{count:'exact',head:true}).eq('conta_id',cid).eq('data',hoje()).eq('status','pendente'),
+  sb.from('ig_conversas').select('id',{count:'exact',head:true}).eq('conta_id',cid).gt('nao_lidas',0),
+  sb.from('ig_comentarios').select('id',{count:'exact',head:true}).eq('conta_id',cid).eq('de_mim',false).eq('respondido',false).eq('oculto',false).is('parent_id',null)]);
+  const set=(id,n)=>{const e=$(id);e.textContent=n||'';e.classList.toggle('hide',!n)};set('#bHoje',a.count);set('#bInbox',i.count);set('#bCom',c.count)}
+function realtime(){sb.channel('ig').on('postgres_changes',{event:'*',schema:'public',table:'ig_mensagens'},()=>{badges();if(S.aba==='inbox')renderInbox(true)}).on('postgres_changes',{event:'*',schema:'public',table:'ig_comentarios'},()=>{badges();if(S.aba==='coment')renderComent()}).on('postgres_changes',{event:'INSERT',schema:'public',table:'ig_acoes'},()=>{badges();if(S.aba==='hoje')renderHoje()}).subscribe()}
+async function sync(){if(!S.conta)return;const b=$('#btnSync');b.innerHTML='<span class="spin"></span>';try{const r=await api('/sync',{conta_id:S.conta.id});const x=r[S.conta.id];toast(typeof x==='string'?x:`Sync ok: ${x.midias} posts, ${x.comentarios} comentários, ${x.conversas} conversas`);await carregarContas();S.cache={};aba(S.aba)}catch(e){toast('Erro no sync: '+e.message)}b.textContent='↻'}
+
+// ---------- navegação ----------
+function aba(t){S.aba=t;document.querySelectorAll('.tabs button').forEach(b=>b.classList.toggle('on',b.dataset.t===t));$('#main').innerHTML='<p class="mut">Carregando…</p>';
+  if(!S.conta&&t!=='contas'&&t!=='estrategia'){$('#main').innerHTML='<div class="card empty">Nenhuma conta conectada ainda.<br><br><button onclick="aba(\'contas\')">Conectar Instagram</button></div>';return}
+  ({hoje:renderHoje,inbox:renderInbox,coment:renderComent,leads:renderLeads,metricas:renderMetricas,conteudo:renderConteudo,estrategia:renderEstrategia,contas:renderContas})[t]()}
+
+// ---------- HOJE (fila assistida) ----------
+async function renderHoje(){const cid=S.conta.id,d=hoje();const {data:acoes}=await sb.from('ig_acoes').select('*, ig_leads(username,nome,restaurante,etapa,fluxo)').eq('conta_id',cid).eq('data',d).order('bloco').order('criado_em');
+  const tot=acoes.length,feitas=acoes.filter(a=>a.status!=='pendente').length;
+  let h=`<div class="card"><div class="row"><div class="grow"><h2 style="margin:0">Rotina de hoje · ${dBR(d)}</h2><div class="mut sm">${feitas} de ${tot} ações feitas. Sempre do mais quente para o mais frio.</div></div><button class="sm sec" onclick="gerarFila()">Gerar fila</button></div><div class="prog" style="margin-top:10px"><i style="width:${pct(feitas,tot)==='–'?0:pct(feitas,tot)}"></i></div>
+  <div class="row wrap" style="margin-top:12px"><input id="novoSeg" placeholder="@novo_seguidor (triagem + mensagem com IA)" style="flex:1;min-width:200px"><select id="novoFluxo" style="width:auto"><option value="NS">Novo seguidor</option><option value="CP">Comentou/curtiu</option><option value="RS">Reagiu a story</option><option value="SC">Respondeu enquete</option><option value="OB">Outbound</option></select><button onclick="pesquisarNovo()">Pesquisar</button></div></div>`;
+  if(!tot)h+=`<div class="card empty">A fila de hoje ainda não foi gerada. Ela nasce sozinha às 06:05 de segunda a sexta, ou clique em <b>Gerar fila</b>.</div>`;
+  let bloco=0;for(const a of acoes){if(a.bloco!==bloco){bloco=a.bloco;h+=`<div class="bloco-h">${BLOCOS[bloco]||'Bloco '+bloco}</div>`}
+    const l=a.ig_leads;const feita=a.status!=='pendente';
+    h+=`<div class="card acao b${a.bloco} ${feita?'feita':''}"><div class="row"><div class="grow"><div class="b">${esc(a.titulo)}</div>${l?`<div class="meta">${esc(l.restaurante||'')} ${l.etapa?'· '+ETAPAS[l.etapa]:''} ${l.fluxo?'· '+l.fluxo:''}</div>`:''}</div>${a.status==='pulada'?'<span class="pill">pulada</span>':feita?'<span class="pill ok">feita</span>':''}</div>
+    ${a.texto?`<div class="txt">${esc(a.texto)}</div>`:''}
+    <div class="row wrap" style="margin-top:6px">${a.url?`<a href="${esc(a.url)}" target="_blank" rel="noopener"><button class="sm gold">Abrir no Instagram</button></a>`:''}${a.texto&&['ativar','followup','responder_dm','avancar','story_captura'].includes(a.tipo)?`<button class="sm sec" onclick="copiar(${JSON.stringify(a.texto).replace(/"/g,'&quot;')})">Copiar texto</button>`:''}
+    ${a.conversa_id?`<button class="sm sec" onclick="abrirConversa('${a.conversa_id}')">Abrir direct aqui</button>`:''}${a.comentario_id?`<button class="sm sec" onclick="aba('coment')">Ver comentário</button>`:''}${a.lead_id?`<button class="sm sec" onclick="abrirLead('${a.lead_id}')">Lead</button>`:''}
+    ${!feita?`<button class="sm right" onclick="acao('${a.id}','feita')">✓ Feita</button><button class="sm ghost" onclick="acao('${a.id}','pulada')">Pular</button>`:`<button class="sm ghost right" onclick="acao('${a.id}','pendente')">Reabrir</button>`}</div></div>`}
+  $('#main').innerHTML=h}
+async function acao(id,status){await sb.from('ig_acoes').update({status,feita_em:status==='pendente'?null:new Date().toISOString(),feita_por:status==='pendente'?null:S.user.email}).eq('id',id);
+  if(status==='feita'){const {data:a}=await sb.from('ig_acoes').select('tipo,lead_id').eq('id',id).single();if(a?.lead_id){const upd={ultimo_toque:new Date().toISOString()};if(a.tipo==='ativar'||a.tipo==='followup'){const {data:l}=await sb.from('ig_leads').select('toques,etapa').eq('id',a.lead_id).single();upd.toques=(l.toques||0)+1;if(a.tipo==='ativar'){upd.etapa='ativado';upd.proximo_toque=somaDias(hoje(),2)}else{const n=upd.toques;upd.proximo_toque=n>=4?null:somaDias(hoje(),n===2?3:5);if(n>=4)upd.etapa='frio'}}if(a.tipo==='seguir')upd.aquecimento_dia=1;await sb.from('ig_leads').update(upd).eq('id',a.lead_id)}}
+  badges();renderHoje()}
+function somaDias(d,n){const x=new Date(d+'T12:00:00');x.setDate(x.getDate()+n);return x.toLocaleDateString('en-CA')}
+async function gerarFila(){toast('Montando a fila…');try{const r=await api('/fila/gerar',{conta_id:S.conta.id});toast(`${r.novas} ações novas · limite de ${r.limite} mensagens novas/dia (dia ${r.dias_operacao} da operação)`);badges();renderHoje()}catch(e){toast(e.message)}}
+async function pesquisarNovo(){const u=$('#novoSeg').value.trim();if(!u)return;const fluxo=$('#novoFluxo').value;toast('Pesquisando @'+u.replace('@','')+' com IA…');try{const r=await api('/lead/pesquisar',{conta_id:S.conta.id,username:u,fluxo});$('#novoSeg').value='';abrirLead(r.lead_id);badges();}catch(e){toast(e.message)}}
+
+// ---------- DIRECT ----------
+let convAberta=null;
+async function renderInbox(soLista){const cid=S.conta.id;const {data:convs}=await sb.from('ig_conversas').select('*, ig_leads(etapa,restaurante,nome)').eq('conta_id',cid).eq('arquivada',false).order('nao_lidas',{ascending:false}).order('ultima_em',{ascending:false}).limit(150);
+  const lista=`<div class="card list" id="convList">${convs.length?convs.map(c=>`<div class="it" onclick="abrirConversa('${c.id}')"><div class="av">${c.participante_foto?`<img src="${esc(c.participante_foto)}">`:esc((c.participante_username||'?')[0].toUpperCase())}</div><div class="grow"><div class="row"><span class="b">@${esc(c.participante_username)}</span>${c.ig_leads?`<span class="pill navy">${ETAPAS[c.ig_leads.etapa]||''}</span>`:''}<span class="meta right">${dtBR(c.ultima_em)}</span></div><div class="sm mut" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${c.ultima_de_mim?'Você: ':''}${esc(c.ultima_msg)}</div></div>${c.nao_lidas?'<div class="dot"></div>':''}</div>`).join(''):'<div class="empty">Nenhuma conversa ainda. Rode o sync.</div>'}</div>`;
+  if(soLista&&$('#convList')){$('#convList').outerHTML=lista;if(convAberta)abrirConversa(convAberta,true);return}
+  $('#main').innerHTML=`<div class="split" id="inboxWrap">${lista}<div id="convPane"><div class="card empty">Escolha uma conversa.</div></div></div>`;
+  if(convAberta&&innerWidth>=900)abrirConversa(convAberta,true)}
+async function abrirConversa(id,silencioso){convAberta=id;if(S.aba!=='inbox'){S.aba='inbox';document.querySelectorAll('.tabs button').forEach(b=>b.classList.toggle('on',b.dataset.t==='inbox'));await renderInbox()}
+  const [{data:c},{data:msgs}]=await Promise.all([sb.from('ig_conversas').select('*, ig_leads(*)').eq('id',id).single(),sb.from('ig_mensagens').select('*').eq('conversa_id',id).order('criado_em').limit(200)]);
+  const l=c.ig_leads;
+  const pane=`<div class="card"><div class="row"><div class="av">${c.participante_foto?`<img src="${esc(c.participante_foto)}">`:esc((c.participante_username||'?')[0].toUpperCase())}</div><div class="grow"><div class="b">@${esc(c.participante_username)} ${l?`<span class="pill navy">${ETAPAS[l.etapa]}</span>`:''}</div><div class="meta">${l?`${esc(l.restaurante||'')} ${l.cidade?'· '+esc(l.cidade):''} ${l.faixa?'· '+FAIXAS[l.faixa]:''}`:'sem lead vinculado'} · camada ${c.camada||1}</div></div>
+    <a href="https://www.instagram.com/${esc(c.participante_username)}/" target="_blank"><button class="sm sec">Perfil</button></a>${l?`<button class="sm sec" onclick="abrirLead('${l.id}')">Lead</button>`:`<button class="sm sec" onclick="vincularLead('${id}','${esc(c.participante_username)}')">+ Lead</button>`}<button class="sm ghost" onclick="arquivar('${id}')">Arquivar</button></div>
+    <div class="thread" id="thread">${msgs.map(m=>`<div class="msg ${m.de_mim?'me':''}">${esc(m.texto)}${m.tipo!=='texto'?` <span class="pill">${m.tipo}</span>`:''}<span class="t">${dtBR(m.criado_em)}</span></div>`).join('')||'<div class="empty">Sem mensagens carregadas.</div>'}</div>
+    <div id="iaBox" class="hide" style="background:rgba(164,138,87,.1);border-radius:10px;padding:10px;margin:8px 0;font-size:13px"></div>
+    <textarea id="dmTxt" placeholder="Escreva como o Charles: 3 a 4 linhas, uma pergunta no final."></textarea>
+    <div class="row wrap" style="margin-top:8px"><button class="sec sm" onclick="sugerirDM('${id}')">✨ Sugerir com IA</button><button class="sm gold right" onclick="enviarDM('${id}')">Enviar pelo app</button><button class="sm sec" onclick="copiar($('#dmTxt').value)">Copiar</button></div></div>`;
+  if(innerWidth>=900&&$('#convPane')){$('#convPane').innerHTML=pane}else{abrirSheet(pane)}
+  const th=$('#thread');if(th)th.scrollTop=th.scrollHeight;
+  if(c.nao_lidas){await sb.from('ig_conversas').update({nao_lidas:0}).eq('id',id);await sb.from('ig_mensagens').update({lido:true}).eq('conversa_id',id).eq('lido',false);badges();if(!silencioso)renderInbox(true)}}
+async function sugerirDM(id){const b=$('#iaBox');b.classList.remove('hide');b.innerHTML='<span class="spin" style="border-color:rgba(0,0,0,.2);border-top-color:var(--gold)"></span> Lendo a conversa com o playbook…';try{const r=await api('/ia/sugerir',{tipo:'dm',id});$('#dmTxt').value=r.mensagem||'';b.innerHTML=`<b>Camada ${r.camada}${r.degrau?' · degrau '+r.degrau:''}</b> ${r.objecao?'· objeção: '+esc(r.objecao):''}<br>${esc(r.observacao||'')}${r.desafio?`<br><b>Desafio (literal):</b> ${esc(r.desafio)}`:''}${r.ganho?`<br><b>Ganho (degrau 4):</b> ${esc(r.ganho)}`:''}${r.etapa_sugerida?`<br>Etapa sugerida: <b>${ETAPAS[r.etapa_sugerida]||r.etapa_sugerida}</b> <button class="sm sec" onclick="etapaDaConversa('${id}','${r.etapa_sugerida}')">Aplicar</button>`:''}`}catch(e){b.textContent='IA indisponível: '+e.message}}
+async function etapaDaConversa(convId,etapa){const {data:c}=await sb.from('ig_conversas').select('lead_id').eq('id',convId).single();if(!c.lead_id)return toast('Vincule um lead primeiro');await sb.from('ig_leads').update({etapa}).eq('id',c.lead_id);toast('Etapa: '+ETAPAS[etapa]);abrirConversa(convId,true)}
+async function enviarDM(id){const t=$('#dmTxt').value.trim();if(!t)return;try{await api('/dm/enviar',{conversa_id:id,texto:t});$('#dmTxt').value='';toast('Enviada');abrirConversa(id,true);renderInbox(true)}catch(e){toast('Não enviou: '+e.message+'. Copie e mande pelo app.')}}
+async function arquivar(id){await sb.from('ig_conversas').update({arquivada:true}).eq('id',id);convAberta=null;fecharSheet();renderInbox()}
+async function vincularLead(convId,username){const {data:c}=await sb.from('ig_conversas').select('participante_id').eq('id',convId).single();let {data:l}=await sb.from('ig_leads').select('id').eq('conta_id',S.conta.id).eq('username',username).maybeSingle();if(!l){const r=await sb.from('ig_leads').insert({conta_id:S.conta.id,username,ig_user_id:c.participante_id,fluxo:'NS',etapa:'rmv',criado_por:S.user.email}).select('id').single();l=r.data}await sb.from('ig_conversas').update({lead_id:l.id}).eq('id',convId);await sb.from('ig_leads').update({conversa_id:convId}).eq('id',l.id);abrirConversa(convId,true)}
+
+// ---------- COMENTÁRIOS ----------
+async function renderComent(){const cid=S.conta.id;const {data:cs}=await sb.from('ig_comentarios').select('*, ig_midias(legenda,thumb,permalink)').eq('conta_id',cid).eq('de_mim',false).is('parent_id',null).order('respondido').order('criado_em',{ascending:false}).limit(120);
+  const pend=cs.filter(c=>!c.respondido&&!c.oculto),resto=cs.filter(c=>c.respondido||c.oculto);
+  const item=c=>`<div class="card" id="c_${c.id}"><div class="row" style="align-items:flex-start">${c.ig_midias?.thumb?`<a href="${esc(c.ig_midias.permalink)}" target="_blank"><img src="${esc(c.ig_midias.thumb)}" style="width:48px;height:48px;border-radius:8px;object-fit:cover"></a>`:'<div class="av">P</div>'}<div class="grow"><div class="row"><b>@${esc(c.autor_username)}</b><span class="meta right">${dtBR(c.criado_em)}</span></div><div style="margin:4px 0">${esc(c.texto)}</div><div class="meta" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">em: ${esc((c.ig_midias?.legenda||'').slice(0,90))}</div>
+    ${c.respondido?`<div class="sm" style="margin-top:6px;color:var(--ok)">↳ ${esc(c.resposta_texto||'respondido')}</div>`:c.oculto?'<span class="pill">oculto</span>':`<div id="ia_${c.id}" class="sm mut"></div><textarea id="r_${c.id}" placeholder="Resposta pública, agregando valor (1 a 2 linhas)" style="min-height:60px;margin-top:6px">${esc(c.sugestao_ia||'')}</textarea>
+    <div class="row wrap" style="margin-top:6px"><button class="sm sec" onclick="sugerirCom('${c.id}')">✨ IA</button><button class="sm gold" onclick="responderCom('${c.id}')">Responder</button><a href="https://www.instagram.com/${esc(c.autor_username)}/" target="_blank"><button class="sm sec">Perfil</button></a><button class="sm ghost right" onclick="ocultarCom('${c.id}')">Ocultar</button></div>`}</div></div></div>`;
+  $('#main').innerHTML=`<h2>Sem resposta (${pend.length})</h2>${pend.map(item).join('')||'<div class="card empty">Tudo respondido.</div>'}<h2 style="margin-top:18px">Respondidos</h2>${resto.slice(0,40).map(item).join('')}`}
+async function sugerirCom(id){$('#ia_'+id).textContent='Pensando…';try{const r=await api('/ia/sugerir',{tipo:'comentario',id});$('#r_'+id).value=r.resposta_publica;$('#ia_'+id).innerHTML=`${r.ehLead?'<span class="pill hot">possível lead</span> ':''}${esc(r.motivo||'')}<br><b>Abridor de direct:</b> ${esc(r.abridor_direct)} <button class="sm ghost" onclick="copiar(${JSON.stringify(r.abridor_direct).replace(/"/g,'&quot;')})">copiar</button>`}catch(e){$('#ia_'+id).textContent=e.message}}
+async function responderCom(id){const t=$('#r_'+id).value.trim();if(!t)return;try{await api('/comentario/responder',{id,texto:t});toast('Respondido no post');badges();renderComent()}catch(e){toast(e.message)}}
+async function ocultarCom(id){try{await api('/comentario/ocultar',{id,ocultar:true});renderComent()}catch(e){toast(e.message)}}
+
+// ---------- LEADS ----------
+let leadVista='kanban';
+async function renderLeads(){const cid=S.conta.id;const {data:ls}=await sb.from('ig_leads').select('*').eq('conta_id',cid).order('atualizado_em',{ascending:false}).limit(600);S.cache.leads=ls;
+  const ordem=Object.keys(ETAPAS);
+  const top=`<div class="card"><div class="row wrap"><h2 style="margin:0">Leads · ${ls.length}</h2><div class="chips right"><span class="chip ${leadVista==='kanban'?'on':''}" onclick="leadVista='kanban';renderLeads()">Pipeline</span><span class="chip ${leadVista==='lista'?'on':''}" onclick="leadVista='lista';renderLeads()">Lista</span></div><button class="sm" onclick="novoLead()">+ Lead</button></div></div>`;
+  if(leadVista==='kanban'){$('#main').innerHTML=top+`<div class="kanban">${ordem.map(e=>{const its=ls.filter(l=>l.etapa===e);return `<div class="col"><h4>${ETAPAS[e]} <span class="mut">${its.length}</span></h4>${its.slice(0,60).map(l=>`<div class="lead" onclick="abrirLead('${l.id}')"><b>@${esc(l.username)}</b> <span class="pill">${l.fluxo}</span><div class="meta">${esc(l.restaurante||l.nome||'')}${l.proximo_toque?' · toque '+dBR(l.proximo_toque):''}</div></div>`).join('')}</div>`}).join('')}</div>`}
+  else{$('#main').innerHTML=top+`<div class="card" style="overflow:auto"><table><tr><th>@</th><th>Restaurante</th><th>Fluxo</th><th>Etapa</th><th>Faixa</th><th>ICP</th><th>Próx. toque</th></tr>${ls.map(l=>`<tr onclick="abrirLead('${l.id}')" style="cursor:pointer"><td><b>${esc(l.username)}</b></td><td>${esc(l.restaurante||'')}<div class="meta">${esc(l.cidade||'')}</div></td><td>${l.fluxo}</td><td>${ETAPAS[l.etapa]}</td><td>${FAIXAS[l.faixa]||''}</td><td>${l.icp==='passa'?'<span class="pill ok">passa</span>':l.icp==='nao_passa'?'<span class="pill">não</span>':''}</td><td>${dBR(l.proximo_toque)}</td></tr>`).join('')}</table></div>`}}
+function novoLead(){abrirSheet(`<h2>Novo lead</h2><label>@ do Instagram</label><input id="nl_u" placeholder="username"><label>Fluxo de origem</label><select id="nl_f">${Object.entries(FLUXOS).map(([k,v])=>`<option value="${k}">${k} · ${v}</option>`).join('')}</select><label>Sinal de calor (opcional)</label><input id="nl_s" placeholder="ex.: abriu segunda unidade"><div class="row" style="margin-top:14px"><button class="sec" onclick="fecharSheet()">Cancelar</button><button class="gold right" onclick="criarLead()">Pesquisar com IA e criar</button></div>`)}
+async function criarLead(){const u=$('#nl_u').value.trim();if(!u)return;toast('Pesquisando…');try{const r=await api('/lead/pesquisar',{conta_id:S.conta.id,username:u,fluxo:$('#nl_f').value,sinal:$('#nl_s').value});abrirLead(r.lead_id)}catch(e){toast(e.message)}}
+async function abrirLead(id){const {data:l}=await sb.from('ig_leads').select('*').eq('id',id).single();if(!l)return;const p=l.perfil||{};const {data:acs}=await sb.from('ig_acoes').select('*').eq('lead_id',id).order('data',{ascending:false}).limit(12);
+  const sel=(idf,obj,v)=>`<select id="${idf}">${Object.entries(obj).map(([k,n])=>`<option value="${k}" ${k===v?'selected':''}>${n}</option>`).join('')}</select>`;
+  abrirSheet(`<div class="row"><div class="av">${p.profile_picture_url?`<img src="${esc(p.profile_picture_url)}">`:esc(l.username[0].toUpperCase())}</div><div class="grow"><h2 style="margin:0">@${esc(l.username)}</h2><div class="meta">${p.followers_count?fmt(p.followers_count)+' seguidores · ':''}${p.media_count?fmt(p.media_count)+' posts':''} ${l.icp==='passa'?'<span class="pill ok">ICP passa</span>':l.icp==='nao_passa'?'<span class="pill">fora de ICP</span>':'<span class="pill">ICP ?</span>'}</div></div><a href="https://www.instagram.com/${esc(l.username)}/" target="_blank"><button class="sm sec">Perfil</button></a><a href="https://ig.me/m/${esc(l.username)}" target="_blank"><button class="sm gold">Direct</button></a></div>
+  ${p.biography?`<p class="sm mut" style="margin:8px 0">${esc(p.biography)}</p>`:''}
+  ${l.pesquisa?`<div class="sm" style="background:rgba(164,138,87,.1);border-radius:10px;padding:8px">${esc(l.pesquisa)}</div>`:''}
+  <div class="row" style="margin-top:8px"><button class="sm sec" onclick="repesquisar('${l.id}','${esc(l.username)}','${l.fluxo}')">✨ Pesquisar de novo com IA</button>${l.conversa_id?`<button class="sm sec" onclick="fecharSheet();abrirConversa('${l.conversa_id}')">Conversa</button>`:''}</div>
+  <div class="split" style="grid-template-columns:1fr 1fr;gap:0 10px"><div><label>Nome</label><input id="ld_nome" value="${esc(l.nome||'')}"></div><div><label>Restaurante</label><input id="ld_rest" value="${esc(l.restaurante||'')}"></div><div><label>Cidade</label><input id="ld_cid" value="${esc(l.cidade||'')}"></div><div><label>Segmento</label><input id="ld_seg" value="${esc(l.segmento||'')}"></div>
+  <div><label>Fluxo</label>${sel('ld_fluxo',FLUXOS,l.fluxo)}</div><div><label>Etapa</label>${sel('ld_etapa',ETAPAS,l.etapa)}</div><div><label>Faixa</label>${sel('ld_faixa',{'':'–',...FAIXAS},l.faixa||'')}</div><div><label>ICP</label>${sel('ld_icp',{indefinido:'Indefinido',passa:'Passa',nao_passa:'Não passa'},l.icp)}</div>
+  <div><label>WhatsApp</label><input id="ld_wa" value="${esc(l.whatsapp||'')}" inputmode="tel"></div><div><label>Próximo toque</label><input id="ld_prox" type="date" value="${l.proximo_toque||''}"></div></div>
+  <label>Sinal de calor</label><input id="ld_sinal" value="${esc(l.sinal_calor||'')}">
+  <label>Conexão específica (linha 2 da mensagem)</label><input id="ld_con" value="${esc(l.conexao||'')}">
+  <label>Desafio nas palavras dele (literal)</label><textarea id="ld_des" style="min-height:60px">${esc(l.desafio||'')}</textarea>
+  <label>O que mudaria se resolvesse (degrau 4, literal)</label><textarea id="ld_gan" style="min-height:60px">${esc(l.ganho||'')}</textarea>
+  <label>Pesquisa / notas</label><textarea id="ld_pesq" style="min-height:60px">${esc(l.pesquisa||'')}</textarea>
+  ${acs?.length?`<label>Ações</label><div class="sm">${acs.map(a=>`<div>${dBR(a.data)} · ${esc(a.titulo)} <span class="pill ${a.status==='feita'?'ok':''}">${a.status}</span></div>`).join('')}</div>`:''}
+  <div class="row" style="margin-top:14px"><button class="ghost" onclick="excluirLead('${l.id}')">Excluir</button><button class="sec right" onclick="fecharSheet()">Fechar</button><button onclick="salvarLead('${l.id}')">Salvar</button></div>`)}
+async function salvarLead(id){const v=i=>$('#'+i).value;const upd={nome:v('ld_nome'),restaurante:v('ld_rest'),cidade:v('ld_cid'),segmento:v('ld_seg'),fluxo:v('ld_fluxo'),etapa:v('ld_etapa'),faixa:v('ld_faixa')||null,icp:v('ld_icp'),whatsapp:v('ld_wa'),proximo_toque:v('ld_prox')||null,sinal_calor:v('ld_sinal'),conexao:v('ld_con'),desafio:v('ld_des'),ganho:v('ld_gan'),pesquisa:v('ld_pesq')};
+  if(upd.faixa==='ate100'&&upd.etapa!=='fora_icp'&&confirm('Faixa abaixo de 100 mil = fora de ICP. Marcar?'))upd.etapa='fora_icp';
+  const {error}=await sb.from('ig_leads').update(upd).eq('id',id);if(error)return toast(error.message);toast('Salvo');fecharSheet();if(S.aba==='leads')renderLeads()}
+async function excluirLead(id){if(!confirm('Excluir este lead?'))return;await sb.from('ig_leads').delete().eq('id',id);fecharSheet();renderLeads()}
+async function repesquisar(id,username,fluxo){toast('Pesquisando…');try{await api('/lead/pesquisar',{conta_id:S.conta.id,username,fluxo});abrirLead(id)}catch(e){toast(e.message)}}
+
+// ---------- MÉTRICAS ----------
+async function renderMetricas(){const cid=S.conta.id;const d30=somaDias(hoje(),-30);const [{data:snaps},{data:leads},{data:acs}]=await Promise.all([sb.from('ig_snapshots').select('*').eq('conta_id',cid).gte('data',d30).order('data'),sb.from('ig_leads').select('fluxo,etapa,criado_em,toques,atualizado_em').eq('conta_id',cid),sb.from('ig_acoes').select('tipo,status,data').eq('conta_id',cid).gte('data',d30)]);
+  const ult=snaps[snaps.length-1]||{},s7=snaps.slice(-7),s30=snaps;const soma=(arr,k)=>arr.reduce((a,x)=>a+(Number(x[k])||0),0);
+  const d7=s7.length>1?(s7[s7.length-1].seguidores-s7[0].seguidores):null;
+  const mes=hoje().slice(0,7);const agendados=leads.filter(l=>['agendado_charles','agendado_guilherme','compareceu','noshow'].includes(l.etapa)&&(l.atualizado_em||'').startsWith(mes)).length;
+  const n=e=>leads.filter(l=>Array.isArray(e)?e.includes(l.etapa):l.etapa===e).length;
+  const ativados=n(['ativado','rmv','desafio','escada','convite','agendado_charles','agendado_guilherme','compareceu','noshow','frio']),responderam=n(['rmv','desafio','escada','convite','agendado_charles','agendado_guilherme','compareceu','noshow']);
+  const porFluxo=Object.keys(FLUXOS).map(f=>{const a=leads.filter(l=>l.fluxo===f&&['ativado','rmv','desafio','escada','convite','agendado_charles','agendado_guilherme','compareceu','noshow','frio'].includes(l.etapa)).length;const r=leads.filter(l=>l.fluxo===f&&['rmv','desafio','escada','convite','agendado_charles','agendado_guilherme','compareceu','noshow'].includes(l.etapa)).length;return {f,a,r,m:METAS.resposta[f]}});
+  const funil=[['Ativados',ativados],['Responderam (RMV)',responderam],['Desafio nomeado',n(['desafio','escada','convite','agendado_charles','agendado_guilherme','compareceu','noshow'])],['Escada concluída',n(['escada','convite','agendado_charles','agendado_guilherme','compareceu','noshow'])],['Convite feito',n(['convite','agendado_charles','agendado_guilherme','compareceu','noshow'])],['Agendados',n(['agendado_charles','agendado_guilherme','compareceu','noshow'])],['Compareceram',n('compareceu')]];
+  const chart=(arr,k,cor)=>{const vs=arr.map(x=>Number(x[k])||0);if(vs.length<2)return '<div class="mut sm">Poucos dias de histórico ainda.</div>';const mn=Math.min(...vs),mx=Math.max(...vs),w=600,h=110;const pts=vs.map((v,i)=>`${(i/(vs.length-1))*w},${h-8-((v-mn)/((mx-mn)||1))*(h-20)}`).join(' ');return `<svg class="chart" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none"><polyline points="${pts}" fill="none" stroke="${cor}" stroke-width="2.5" stroke-linejoin="round"/></svg><div class="row xs mut"><span>${dBR(arr[0].data)}</span><span class="right">${dBR(arr[arr.length-1].data)}</span></div>`};
+  $('#main').innerHTML=`<div class="kpis"><div class="kpi"><div class="l">Seguidores</div><div class="v">${fmt(S.conta.seguidores)}</div><div class="d ${d7>=0?'up':'down'}">${d7==null?'':(d7>=0?'+':'')+fmt(d7)+' em 7 dias'}</div></div><div class="kpi"><div class="l">Novos seguidores 30d</div><div class="v">${fmt(soma(s30,'novos_seguidores'))}</div><div class="d mut">${fmt(soma(s7,'novos_seguidores'))} nos últimos 7</div></div><div class="kpi"><div class="l">Alcance 7d</div><div class="v">${fmt(soma(s7,'alcance'))}</div><div class="d mut">visitas ao perfil: ${fmt(soma(s7,'visitas_perfil'))}</div></div><div class="kpi"><div class="l">Diagnósticos no mês</div><div class="v">${agendados}</div><div class="d ${agendados>=METAS.diag_mes[0]?'up':'mut'}">meta ${METAS.diag_mes[0]} a ${METAS.diag_mes[1]}</div></div></div>
+  <div class="split" style="margin-top:12px"><div class="card"><h3>Seguidores, 30 dias</h3>${chart(s30,'seguidores','#A48A57')}</div><div class="card"><h3>Alcance por dia</h3>${chart(s30,'alcance','#1D3573')}</div></div>
+  <div class="split"><div class="card"><h3>Funil do social selling</h3><table>${funil.map(([k,v],i)=>`<tr><td>${k}</td><td class="b">${v}</td><td class="mut">${i?pct(v,funil[i-1][1]):''}</td></tr>`).join('')}</table><div class="meta" style="margin-top:6px">Metas: RMV→desafio ${METAS.rmv_desafio}% · desafio→escada ${METAS.desafio_escada}% · escada→convite ${METAS.escada_convite}% · agendado→compareceu ${METAS.agendado_compareceu}%</div></div>
+  <div class="card"><h3>Taxa de resposta por fluxo</h3><table><tr><th>Fluxo</th><th>Ativados</th><th>Responderam</th><th>Taxa</th><th>Meta</th></tr>${porFluxo.map(x=>`<tr><td>${x.f} <span class="meta">${FLUXOS[x.f]}</span></td><td>${x.a}</td><td>${x.r}</td><td class="b ${x.a&&100*x.r/x.a<x.m[0]?'down':x.a?'up':''}">${pct(x.r,x.a)}</td><td class="mut">${x.m[0]}–${x.m[1]}%</td></tr>`).join('')}</table><div class="meta" style="margin-top:6px">Se cair abaixo da meta: mensagem genérica, falta de reciprocidade ou lead fora de ICP, nesta ordem.</div></div></div>
+  <div class="card"><h3>Execução da rotina, 30 dias</h3><div class="row wrap">${['ativar','followup','responder_dm','responder_comentario','seguir','visita'].map(t=>{const a=acs.filter(x=>x.tipo===t);const f=a.filter(x=>x.status==='feita').length;return `<div class="kpi" style="flex:1;min-width:120px"><div class="l">${t.replace('_',' ')}</div><div class="v" style="font-size:20px">${f}<span class="mut sm">/${a.length}</span></div></div>`}).join('')}</div></div>`}
+
+// ---------- CONTEÚDO ----------
+async function renderConteudo(){const cid=S.conta.id;const {data:ms}=await sb.from('ig_midias').select('*').eq('conta_id',cid).order('publicado_em',{ascending:false}).limit(60);
+  const cats={dor:0,bastidor:0,ensino:0,convite:0,resultado:0,outro:0};ms.forEach(m=>{if(m.categoria in cats)cats[m.categoria]++});const ult5=ms.slice(0,5);const naoCom=ult5.filter(m=>['dor','bastidor','ensino'].includes(m.categoria)).length,com=ult5.filter(m=>['convite','resultado'].includes(m.categoria)).length;
+  const dow=new Date().getDay();const cal=[['Seg','Enquete','Você sabe quanto sobrou de lucro no seu restaurante mês passado? SIM / NÃO'],['Ter','Quiz','Qual CMV é saudável num self-service? 25% / 30% / 38%'],['Qua','Enquete','O que mais te consome hoje? EQUIPE / CUSTO'],['Qui','Caixinha','Me conta o maior desafio do seu restaurante hoje. Respondo todos.'],['Sex','Enquete','Você conseguiu tirar folga esse mês? SIM / NÃO']];
+  const top=[...ms].sort((a,b)=>(b.interacoes||b.curtidas+b.comentarios)-(a.interacoes||a.curtidas+a.comentarios)).slice(0,3);
+  $('#main').innerHTML=`<div class="card"><h3>Story de captura da semana</h3><div class="row wrap">${cal.map((c,i)=>`<div class="kpi" style="flex:1;min-width:150px;${dow===i+1?'outline:2px solid var(--gold)':''}"><div class="l">${c[0]} · ${c[1]}</div><div class="sm" style="margin-top:4px">${c[2]}</div></div>`).join('')}</div></div>
+  <div class="card"><div class="row"><h3 style="margin:0">Motor 3 por 2</h3><button class="sm sec right" onclick="classificar()">✨ Classificar posts</button></div><div class="row wrap" style="margin-top:8px">${Object.entries(cats).map(([k,v])=>`<span class="pill ${['convite','resultado'].includes(k)?'gold':'navy'}">${k}: ${v}</span>`).join('')}</div><div class="sm mut" style="margin-top:6px">Últimos 5 posts: ${naoCom} sem objetivo comercial, ${com} comerciais. Ciclo ideal: 3 por 2 (dor, bastidor, ensino · convite, resultado).</div></div>
+  ${top.length?`<div class="card"><h3>Mais engajamento</h3><div class="list">${top.map(m=>`<div class="it" onclick="window.open('${esc(m.permalink)}')"><img src="${esc(m.thumb||m.url||'')}" style="width:56px;height:56px;border-radius:8px;object-fit:cover;background:var(--bg)"><div class="grow"><div class="sm" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc((m.legenda||'').slice(0,80))}</div><div class="meta">${dBR(m.publicado_em)} · ❤ ${fmt(m.curtidas)} · 💬 ${fmt(m.comentarios)} · alcance ${fmt(m.alcance)} · salvos ${fmt(m.salvos)} · comp. ${fmt(m.compartilhamentos)}</div></div></div>`).join('')}</div></div>`:''}
+  <h2>Posts e reels</h2><div class="grid">${ms.map(m=>`<div class="post" onclick="window.open('${esc(m.permalink)}')"><img src="${esc(m.thumb||m.url||'')}" loading="lazy"><div class="m">${dBR(m.publicado_em)} · ${m.produto==='REELS'?'Reel':m.tipo==='CAROUSEL_ALBUM'?'Carrossel':'Post'}${m.categoria?` · <b>${m.categoria}</b>`:''}<br>❤ ${fmt(m.curtidas)} · 💬 ${fmt(m.comentarios)}${m.alcance?' · 👁 '+fmt(m.alcance):''}${m.visualizacoes?' · ▶ '+fmt(m.visualizacoes):''}</div></div>`).join('')||'<div class="empty">Rode o sync para carregar os posts.</div>'}</div>`}
+async function classificar(){toast('Classificando com IA…');try{const r=await api('/ia/classificar_midias',{conta_id:S.conta.id});toast(r.n+' posts classificados');renderConteudo()}catch(e){toast(e.message)}}
+
+// ---------- ESTRATÉGIA ----------
+async function renderEstrategia(){const c=S.conta;const cfg=c?.config||{};const {data:acs}=await sb.from('ig_acesso').select('*').order('criado_em');
+  const inicio=cfg.inicio||(c?.conectado_em||'').slice(0,10);const dias=inicio?Math.max(0,Math.round((Date.now()-new Date(inicio).getTime())/864e5)):0;const lim=Math.min(dias<7?10:dias<14?15:dias<60?25:40,cfg.max_dia||80);
+  $('#main').innerHTML=`<div class="card"><h2>Estratégia · Playbook de Social Selling v2</h2><p class="sm mut">O app segue o playbook de agosto/2026 à risca: 6 fluxos de entrada, 5 camadas de conversa, 12 modelos de boas-vindas, cadência D+2/D+5/D+10, rotina diária em 9 blocos, rampa de volume e pipeline de 13 etapas. A IA escreve como o Charles e nunca pula camada.</p></div>
+  ${c?`<div class="card"><h3>Rampa de volume · @${esc(c.username)}</h3><div class="row wrap" style="gap:16px"><div><label>Início da operação</label><input id="cfg_inicio" type="date" value="${inicio}"></div><div><label>Teto por dia</label><input id="cfg_max" type="number" value="${cfg.max_dia||80}" style="width:100px"></div><div><label>Story de captura automático</label><select id="cfg_sc" style="width:auto"><option value="" ${!cfg.sem_story_captura?'selected':''}>Sim</option><option value="1" ${cfg.sem_story_captura?'selected':''}>Não</option></select></div></div>
+  <div class="sm" style="margin-top:10px">Dia <b>${dias}</b> da operação → limite hoje: <b>${lim} mensagens novas</b> (semana 1: 10 · semana 2: 15 · semanas 3-4: 25 · a partir do dia 60: 40 · nunca mais de 80). Intervalo de 2 a 3 minutos entre mensagens, nunca duas idênticas no mesmo dia.</div><button class="sm" style="margin-top:10px" onclick="salvarCfg()">Salvar</button></div>`:''}
+  <div class="card"><h3>Os 6 fluxos (do mais quente ao mais frio)</h3><table>${[['SC','Story de captura','Charles provoca com enquete/quiz/caixinha. Quem responde já declarou a dor.'],['RS','Reação ou resposta em story','Levantou a mão sozinho. Inbound quente, responder em até 5 min.'],['CP','Comentário ou curtida em post','Responde em público agregando valor, depois vai ao direct.'],['NS','Novo seguidor','Triagem de 60 s, reciprocidade e boas-vindas (12 modelos).'],['VS','Visita sincera','Base parada: frios há 60 dias, quem engajou e não foi abordado.'],['OB','Outbound ativo','Aquecimento obrigatório de 2 dias: D0 segue/curte/reage, D1 comenta com valor, D2 ativa.']].map(f=>`<tr><td class="b">${f[0]}</td><td>${f[1]}<div class="meta">${f[2]}</div></td></tr>`).join('')}</table></div>
+  <div class="card"><h3>As 5 camadas da conversa</h3><table>${[['0 Reciprocidade','Seguir, curtir 2 posts, reagir a 1 story. Antes de qualquer mensagem.'],['1 Ativação','Saudação + nome, UMA conexão específica, posicionamento em 1 linha, UMA pergunta factual.'],['2 Condução','Reage em 1 linha e pergunta o desafio com 3 alternativas: financeiro, equipe ou operacional.'],['3 Escada','4 degraus: como aparece · há quanto tempo e o que tentou · o custo · o ganho (literal, vira o campo do closer).'],['4 Conversão','Faixa de faturamento, prova social, convite ao Diagnóstico, dois horários. Nunca "quando você pode".']].map(f=>`<tr><td class="b" style="white-space:nowrap">${f[0]}</td><td class="sm">${f[1]}</td></tr>`).join('')}</table></div>
+  <div class="card"><h3>Metas do funil</h3><table><tr><td>Resposta SC</td><td class="b">60–75%</td><td>Resposta RS/CP</td><td class="b">45–60%</td></tr><tr><td>Resposta NS/VS</td><td class="b">25–35%</td><td>Resposta OB</td><td class="b">10–15%</td></tr><tr><td>RMV → desafio</td><td class="b">50%</td><td>Desafio → escada</td><td class="b">60%</td></tr><tr><td>Escada → convite</td><td class="b">55%</td><td>Agendado → compareceu</td><td class="b">70%</td></tr><tr><td>Diagnósticos/mês</td><td class="b">25 a 40</td><td>Roteamento</td><td class="sm">100–300k Guilherme · >300k Charles</td></tr></table></div>
+  <div class="card"><h3>Quem acessa</h3><div class="list">${(acs||[]).map(a=>`<div class="it" style="cursor:default"><div class="grow">${esc(a.nome||'')} <span class="mut">${esc(a.email)}</span></div><span class="pill">${a.papel}</span><button class="sm ghost" onclick="removerAcesso('${esc(a.email)}')">×</button></div>`).join('')}</div><div class="row wrap" style="margin-top:8px"><input id="ac_email" placeholder="e-mail (precisa ter login no Flow/Supabase)" style="flex:1;min-width:200px"><input id="ac_nome" placeholder="nome" style="width:140px"><select id="ac_papel" style="width:auto"><option value="sdr">SDR</option><option value="closer">Closer</option><option value="admin">Admin</option></select><button class="sm" onclick="addAcesso()">Liberar</button></div><div class="meta" style="margin-top:6px">O login é o mesmo do Flow (Supabase Auth). Quem ainda não tem usuário precisa ser criado no painel do Supabase ou pelo admin do Flow.</div></div>`}
+async function salvarCfg(){const cfg={...(S.conta.config||{}),inicio:$('#cfg_inicio').value,max_dia:Number($('#cfg_max').value)||80,sem_story_captura:!!$('#cfg_sc').value};await sb.from('ig_contas').update({config:cfg}).eq('id',S.conta.id);S.conta.config=cfg;toast('Salvo');renderEstrategia()}
+async function addAcesso(){const email=$('#ac_email').value.trim().toLowerCase();if(!email)return;const {error}=await sb.from('ig_acesso').upsert({email,nome:$('#ac_nome').value,papel:$('#ac_papel').value});toast(error?error.message:'Liberado');renderEstrategia()}
+async function removerAcesso(email){if(!confirm('Remover '+email+'?'))return;await sb.from('ig_acesso').delete().eq('email',email);renderEstrategia()}
+
+// ---------- CONTAS ----------
+async function renderContas(){const {data:logs}=await sb.from('ig_log').select('*').in('tipo',['erro','auth']).order('quando',{ascending:false}).limit(8);
+  $('#main').innerHTML=`<div class="card"><h2>Contas do Instagram</h2><p class="sm mut">Conecte contas <b>profissionais</b> (Business ou Creator). O login é feito no próprio Instagram, com as permissões de métricas, comentários e mensagens. Nada de senha aqui.</p><a href="${FN}/ig-auth/start?u=${encodeURIComponent(S.user.email)}"><button class="gold">+ Conectar conta do Instagram</button></a></div>
+  ${S.contas.map(c=>{const venc=c.token_expira?Math.round((new Date(c.token_expira)-Date.now())/864e5):null;return `<div class="card"><div class="row"><div class="av">${c.foto?`<img src="${esc(c.foto)}">`:'IG'}</div><div class="grow"><div class="b">@${esc(c.username)} <span class="mut">${esc(c.nome||'')}</span></div><div class="meta">${fmt(c.seguidores)} seguidores · ${fmt(c.midias)} posts · conectada em ${dBR(c.conectado_em)}</div></div></div>
+  <div class="row wrap sm" style="margin-top:10px;gap:6px"><span class="pill ${c.webhook_ok?'ok':'hot'}">${c.webhook_ok?'webhooks ok':'webhooks pendentes'}</span><span class="pill ${venc!=null&&venc<10?'hot':'ok'}">token ${venc!=null?'vence em '+venc+' dias':'?'}</span><span class="pill">último sync ${c.ultimo_sync?dtBR(c.ultimo_sync):'nunca'}</span>${c.erro_sync?`<span class="pill hot" title="${esc(c.erro_sync)}">erro no sync</span>`:''}</div>
+  ${c.erro_sync?`<div class="sm" style="color:var(--bad);margin-top:6px">${esc(c.erro_sync)}</div>`:''}
+  <div class="row wrap" style="margin-top:10px"><button class="sm sec" onclick="S.conta=S.contas.find(x=>x.id==='${c.id}');sync()">Sincronizar</button><button class="sm sec" onclick="syncCompleto('${c.id}')">Sync completo (histórico)</button><a href="${FN}/ig-auth/start?u=${encodeURIComponent(S.user.email)}"><button class="sm ghost">Reconectar</button></a><button class="sm ghost right" onclick="desativar('${c.id}',${!c.ativo})">${c.ativo?'Desativar':'Ativar'}</button></div></div>`}).join('')||''}
+  <div class="card"><h3>Configuração na Meta (uma vez)</h3><ol class="sm" style="padding-left:18px;line-height:1.7"><li>App em developers.facebook.com, produto <b>Instagram</b> → "API setup with Instagram login".</li><li>Secrets no Supabase: <code>IG_APP_ID</code> e <code>IG_APP_SECRET</code>.</li><li>OAuth redirect URI: <code>${FN}/ig-auth/callback</code></li><li>Webhooks (Instagram): callback <code>${FN}/ig-webhook</code>, campos <b>comments</b> e <b>messages</b>, verify token = secret <code>IG_WEBHOOK_VERIFY</code>.</li><li>Adicionar o @ do Charles e o @somos.lidera como testadores do app (enquanto o app não passa pela revisão) e aceitar o convite no Instagram.</li></ol></div>
+  ${logs?.length?`<div class="card"><h3>Últimos eventos</h3>${logs.map(l=>`<div class="xs mut" style="margin:4px 0"><b>${l.tipo}</b> ${dtBR(l.quando)} · ${esc(JSON.stringify(l.detalhe).slice(0,160))}</div>`).join('')}</div>`:''}`}
+async function syncCompleto(id){toast('Sync completo iniciado (pode levar 1 a 2 minutos)…');try{const r=await api('/sync',{conta_id:id,completo:true});toast('Pronto: '+JSON.stringify(r[id]).slice(0,120));await carregarContas();renderContas()}catch(e){toast(e.message)}}
+async function desativar(id,ativo){await sb.from('ig_contas').update({ativo}).eq('id',id);await carregarContas();renderContas()}
+
+sb.auth.onAuthStateChange((ev)=>{if(ev==='SIGNED_OUT'){$('#login').style.display='grid';$('#app').style.display='none'}});
+iniciar();
+</script>
+</body>
+</html>
