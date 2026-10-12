@@ -240,6 +240,15 @@ async function enviarDM(conversa_id: string, texto: string, quem: string) {
 }
 
 // ======================= LEAD: PESQUISA + IA =======================
+const RX_CONCORRENTE = /(consultor(?:ia|a|es)?|mentor(?:ia|a|es)?|treinament|curso|palestr|workshop|imers[aã]o|m[eé]todo|franquia de|software|sistema de gest[aã]o|agência|agencia|contador(?:a)? (?:d[eo]s?|para) restaurant|contabilidade|marketing (?:para|de) restaurant|gest[aã]o (?:de|para) restaurant|lucro (?:de|para|no) restaurant|dono?s? de restaurante|restaurant(?:e|es)? lucrativ|ajudo (?:restaurant|donos|empres))/i;
+function ehConcorrente(t: string): string | null {
+  const m = String(t || "").match(RX_CONCORRENTE);
+  if (!m) return null;
+  // só vale se, além do gatilho, falar de restaurante/food/gastronomia (ou gatilho já é específico)
+  const especifico = /restaurant|gastron|food|alimenta|bar|pizzar|churrasc|delivery|cozinha/i.test(t) || /dono?s? de restaurante|contador|gest[aã]o (?:de|para) restaurant|restaurant(?:e|es)? lucrativ/i.test(m[0]);
+  return especifico ? m[0] : null;
+}
+
 // Extrai nome, contagens e bio do texto da página do perfil (formato do get_page_text do Instagram)
 function parsePerfil(t: string): Row {
   const num = (s: string) => { const m = s.replace(/\./g, "").match(/([\d,]+)\s*(mil|mi)?/i); if (!m) return null; let n = parseFloat(m[1].replace(",", ".")); if (/mil/i.test(m[2] || "")) n *= 1000; if (/^mi$/i.test(m[2] || "")) n *= 1e6; return Math.round(n); };
@@ -276,6 +285,9 @@ async function pesquisarLead(conta_id: string, username: string, quem: string, e
       perfil = { erro: String(e).includes("nonexisting field") ? "business_discovery indisponível no login do Instagram; sem dados do perfil" : String(e).includes("2207013") || String(e).toLowerCase().includes("not found") ? "perfil não é business/creator ou não existe" : String(e).slice(0, 200) };
     }
   }
+  // Regra fixa: quem vende consultoria/mentoria/treinamento/curso para dono de restaurante é CONCORRENTE. Nunca entra no fluxo.
+  const textoPerfil = [perfil.texto, perfil.biography, perfil.name, perfil.nome, perfil.bio, (perfil.media as Row)?.data ? JSON.stringify((perfil.media as Row).data).slice(0, 2000) : ""].filter(Boolean).join(" ");
+  const concorrente = ehConcorrente(textoPerfil + " " + username);
   // IA: triagem + conexão + mensagem
   const fluxo = String(extra.fluxo || "NS");
   const fx = await fluxoDaConta(conta_id, fluxo);
@@ -291,15 +303,17 @@ ${JSON.stringify(perfil).slice(0, 6000)}
 ${extra.sinal ? `Sinal de calor informado: ${extra.sinal}` : ""}
 Hora atual: ${saudacao()}.
 
+ATENÇÃO, CONCORRENTE: se o perfil vende consultoria, mentoria, treinamento, curso, palestra, método, software de gestão, contabilidade ou agência de marketing PARA restaurantes/donos de restaurante (ex.: "ajudo donos de restaurante a lucrar", "mentor de donos de restaurante", "consultoria para restaurantes", "o contador dos restaurantes"), marque "concorrente": true e "icp": "nao_passa". Ele segue para aprender, não para comprar.
 Responda SÓ JSON com:
-{"icp":"passa|nao_passa|indefinido","motivo":"1 linha","nome":"primeiro nome provável ou vazio","restaurante":"nome ou vazio","cidade":"ou vazio","segmento":"self-service|a quilo|churrascaria|marmitaria|pizzaria|delivery|bar|outro|desconhecido","porte":"pequeno|medio|rede","sinais":["..."],"modelo":1-12,"conexao":"o detalhe específico, verdadeiro, tirado do perfil (sem elogio genérico)","pergunta_factual":"uma pergunta de zero esforço","mensagem":"a mensagem completa de ativação (versão A), 3 a 4 linhas, pronta para colar","pesquisa_profunda":true|false}`;
+{"icp":"passa|nao_passa|indefinido","concorrente":false,"motivo":"1 linha","nome":"primeiro nome provável ou vazio","restaurante":"nome ou vazio","cidade":"ou vazio","segmento":"self-service|a quilo|churrascaria|marmitaria|pizzaria|delivery|bar|outro|desconhecido","porte":"pequeno|medio|rede","sinais":["..."],"modelo":1-12,"conexao":"o detalhe específico, verdadeiro, tirado do perfil (sem elogio genérico)","pergunta_factual":"uma pergunta de zero esforço","mensagem":"a mensagem completa de ativação (versão A), 3 a 4 linhas, pronta para colar","pesquisa_profunda":true|false}`;
   let ia: Row = {};
-  try { ia = JSON.parse(await gemini(prompt, { json: true, temp: 0.6 })); } catch (e) { ia = { erro: String(e).slice(0, 200) }; }
+  if (concorrente) ia = { icp: "nao_passa", motivo: "CONCORRENTE: o perfil vende consultoria, mentoria, treinamento ou serviço para donos de restaurante (" + concorrente + "). Não abordar.", concorrente: true, modelo: null };
+  else try { ia = JSON.parse(await gemini(prompt, { json: true, temp: 0.6 })); if (ia.concorrente === true) { ia.icp = "nao_passa"; ia.motivo = "CONCORRENTE (IA): " + (ia.motivo || ""); } } catch (e) { ia = { erro: String(e).slice(0, 200) }; }
   const { data: ex } = await db.from("ig_leads").select("id").eq("conta_id", conta_id).eq("username", username).maybeSingle();
   const row: Row = {
     conta_id, username, fluxo, perfil, icp: (ia.icp as string) || "indefinido",
     nome: (ia.nome as string) || (perfil.name as string) || null, restaurante: (ia.restaurante as string) || null, cidade: (ia.cidade as string) || null, segmento: (ia.segmento as string) || null,
-    conexao: (ia.conexao as string) || null, sinal_calor: (extra.sinal as string) || ((ia.sinais as string[]) || []).join(", ") || null,
+    conexao: (ia.conexao as string) || null, sinal_calor: ia.concorrente ? "CONCORRENTE" : ((extra.sinal as string) || ((ia.sinais as string[]) || []).join(", ") || null),
     pesquisa: ia.motivo ? `IA: ${ia.motivo}${ia.pesquisa_profunda ? " · Pesquisa profunda recomendada (conta grande)." : ""}` : null,
     etapa: ia.icp === "nao_passa" ? "fora_icp" : "aquecendo", criado_por: quem,
   };
