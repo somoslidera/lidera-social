@@ -240,6 +240,25 @@ async function enviarDM(conversa_id: string, texto: string, quem: string) {
 }
 
 // ======================= LEAD: PESQUISA + IA =======================
+// Extrai nome, contagens e bio do texto da página do perfil (formato do get_page_text do Instagram)
+function parsePerfil(t: string): Row {
+  const num = (s: string) => { const m = s.replace(/\./g, "").match(/([\d,]+)\s*(mil|mi)?/i); if (!m) return null; let n = parseFloat(m[1].replace(",", ".")); if (/mil/i.test(m[2] || "")) n *= 1000; if (/^mi$/i.test(m[2] || "")) n *= 1e6; return Math.round(n); };
+  const out: Row = {};
+  const posts = t.match(/([\d.,]+\s*(?:mil|mi)?)\s*posts?/i); if (posts) out.posts = num(posts[1]);
+  const seg = t.match(/([\d.,]+\s*(?:mil|mi)?)\s*seguidores/i); if (seg) out.seguidores = num(seg[1]);
+  const sgd = t.match(/([\d.,]+\s*(?:mil|mi)?)\s*seguindo/i); if (sgd) out.seguindo = num(sgd[1]);
+  out.privado = /perfil (é|e) privado/i.test(t);
+  out.verificado = /verificad[oa]/i.test(t.slice(0, 200));
+  // formato "username · Nome · N posts · ..." (resumo) ou linhas (página crua)
+  const linhas = t.split(/\n|·/).map((x) => x.trim()).filter(Boolean);
+  if (linhas.length > 1 && !/\d/.test(linhas[1])) out.nome = linhas[1].slice(0, 80);
+  const idx = linhas.findIndex((l) => /seguindo/i.test(l));
+  const bio = linhas.slice(idx + 1).filter((l) => !/^(seguir|seguir de volta|enviar mensagem|seguindo|destaques|mais|este perfil é privado|siga esse usuário|sugestões para você|ver tudo|ainda não há nenhum post|seguido\(a\) por|bio:|sem bio|sem nome|perfil privado)/i.test(l) && !/^seguido\(a\) por/i.test(l)).slice(0, 6).join(" · ");
+  if (bio) out.bio = bio.slice(0, 300);
+  const seguidoPor = t.match(/Seguido\(a\) por ([^\n·]+)/i); if (seguidoPor) out.seguido_por = seguidoPor[1].trim().slice(0, 120);
+  return out;
+}
+
 async function pesquisarLead(conta_id: string, username: string, quem: string, extra: Row) {
   username = username.replace(/^@/, "").trim().toLowerCase();
   if (!username) throw new Error("username vazio");
@@ -248,7 +267,7 @@ async function pesquisarLead(conta_id: string, username: string, quem: string, e
   let perfil: Row = {};
   if (extra.perfil_texto) {
     // texto da página do perfil (lido pelo navegador): bio, contagens, legendas recentes
-    perfil = { fonte: "pagina", texto: String(extra.perfil_texto).slice(0, 5000) };
+    perfil = { fonte: "pagina", texto: String(extra.perfil_texto).slice(0, 5000), ...parsePerfil(String(extra.perfil_texto)) };
   } else {
     try {
       const j = await graph(conta_id, tok, { fields: `business_discovery.username(${username}){username,name,biography,website,followers_count,follows_count,media_count,profile_picture_url,media.limit(8){caption,like_count,comments_count,media_type,permalink,timestamp}}` });
