@@ -498,22 +498,28 @@ async function executarFluxos(conta_id: string) {
     const limite = limiteDiario(dias, Number(cfg.max_dia) || 80);
     const { count: enviadas } = await db.from("ig_acoes").select("id", { count: "exact", head: true }).eq("conta_id", cid).eq("data", hoje()).eq("status", "feita").eq("feita_por", "api").in("tipo", ["ativar", "followup"]);
     let msgs = enviadas || 0;
-    const { data: acoes } = await db.from("ig_acoes").select("*, ig_leads(*)").eq("conta_id", cid).eq("status", "pendente").eq("automatico", true).lte("data", hoje()).order("criado_em").limit(30);
-    const r: Row = { comentarios: 0, mensagens: 0, sem_canal: 0, erros: 0 };
+    const aprovacao = cfg.modo === "aprovacao";
+    const { data: acoes } = await db.from("ig_acoes").select("*, ig_leads(*)").eq("conta_id", cid).eq("status", "pendente").eq("automatico", true).lte("data", hoje()).order("criado_em").limit(40);
+    const r: Row = { comentarios: 0, mensagens: 0, sem_canal: 0, erros: 0, preparadas: 0, modo: aprovacao ? "aprovacao" : "automatico" };
     for (const a of acoes || []) {
       const l = a.ig_leads as Row | null;
       try {
         if (a.tipo === "responder_comentario" && a.comentario_id) {
-          const ia = await sugerir("comentario", a.comentario_id);
-          await responderComentario(a.comentario_id, String(ia.resposta_publica || ""), "api");
-          await db.from("ig_acoes").update({ status: "feita", feita_em: new Date().toISOString(), feita_por: "api", texto: ia.resposta_publica }).eq("id", a.id);
+          // modo aprovação: prepara a sugestão (fica visível em Aprovações) e só envia depois do OK
+          let texto = String(a.texto_sugerido || "");
+          if (!texto) { const ia = await sugerir("comentario", a.comentario_id); texto = String(ia.resposta_publica || ""); await db.from("ig_acoes").update({ texto_sugerido: texto }).eq("id", a.id); r.preparadas = (r.preparadas as number) + 1; }
+          if (aprovacao && !a.aprovado) continue;
+          const final = String(a.aprovado && a.texto_sugerido ? a.texto_sugerido : texto);
+          await responderComentario(a.comentario_id, final, "api");
+          await db.from("ig_acoes").update({ status: "feita", feita_em: new Date().toISOString(), feita_por: "api", texto: final }).eq("id", a.id);
           r.comentarios = (r.comentarios as number) + 1; continue;
         }
+        if (aprovacao && !a.aprovado) continue;
         if (a.tipo === "ativar" || a.tipo === "followup") {
           if (msgs >= limite) continue;
           if (!a.texto || temPlaceholder(a.texto)) continue; // texto incompleto fica para a pessoa
           if (l?.icp === "nao_passa") { await db.from("ig_acoes").update({ status: "pulada", feita_por: "api" }).eq("id", a.id); continue; }
-          if (l?.icp !== "passa") continue; // "a confirmar" não recebe DM sozinho: fica na fila para a pessoa aprovar
+          if (l?.icp !== "passa" && !a.aprovado) continue; // "a confirmar" só com aprovação humana
           let enviado = false;
           // canal 1: conversa já aberta no direct
           const { data: cv } = await db.from("ig_conversas").select("id,participante_id").eq("conta_id", cid).eq("lead_id", a.lead_id).maybeSingle();
