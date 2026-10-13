@@ -399,7 +399,7 @@ async function aprovar(id,ok){const t=$('#apt_'+id)?.value?.trim();if(!t)return 
 async function recusar(id){await sb.from('ig_acoes').update({status:'pulada',feita_por:S.user.email,feita_em:new Date().toISOString()}).eq('id',id);badges();renderAprovar()}
 async function setModo(m){const cfg={...(S.conta.config||{}),modo:m,auto:true};await sb.from('ig_contas').update({config:cfg}).eq('id',S.conta.id);S.conta.config=cfg;toast(m==='aprovacao'?'Modo manual: tudo passa pela sua aprovação':'Modo automático: a IA executa sozinha');badges();aba(S.aba)}
 async function enviarAprovadas(){toast('Enviando pela API…',8000);try{const r=await api('/fluxos/executar',{conta_id:S.conta.id});const x=r[S.conta.id]||{};toast(`Enviadas: ${x.comentarios||0} respostas públicas, ${x.mensagens||0} directs${x.sem_canal?' · '+x.sem_canal+' sem canal oficial (ficam para envio manual)':''}`,7000);badges();renderAprovar()}catch(e){toast(e.message)}}
-async function prepararAgora(){toast('Preparando textos com IA…',8000);try{await api('/fluxos/executar',{conta_id:S.conta.id});renderAprovar()}catch(e){toast(e.message)}}
+async function prepararAgora(){toast('Reescrevendo as mensagens com o fluxo atual…',12000);try{const r=await api('/fluxos/reescrever',{conta_id:S.conta.id});await api('/fluxos/executar',{conta_id:S.conta.id});toast(`${r.reescritas} mensagem(ns) reescrita(s)${r.erros?.length?' · '+r.erros.length+' com erro':''}`);renderAprovar()}catch(e){toast(e.message)}}
 
 // ===================== SEGUIDORES =====================
 let segFiltro='todos',segPeriodo=30;
