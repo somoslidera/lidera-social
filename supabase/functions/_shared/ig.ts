@@ -111,3 +111,12 @@ export async function gemini(prompt: string, opts: { json?: boolean; modelo?: st
 export const hoje = () => new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" }); // YYYY-MM-DD
 export const agoraBR = () => new Date(new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }));
 export const saudacao = () => { const h = agoraBR().getHours(); return h < 12 ? "bom dia" : h < 18 ? "boa tarde" : "boa noite"; };
+
+// Gemini às vezes devolve texto antes/depois do JSON ou cercas ```json: extrai o primeiro objeto válido
+export function parseJSON(txt: string): Record<string, unknown> {
+  const s = String(txt || "").trim().replace(/^```(?:json)?/i, "").replace(/```$/, "").trim();
+  try { return JSON.parse(s); } catch { /* tenta recortar */ }
+  const a = s.indexOf("{"), b = s.lastIndexOf("}");
+  if (a >= 0 && b > a) { try { return JSON.parse(s.slice(a, b + 1)); } catch { /* cai no erro abaixo */ } }
+  throw new Error("resposta da IA não veio em JSON: " + s.slice(0, 120));
+}

@@ -58,6 +58,19 @@ async function processar(body: Record<string, unknown>) {
       }, { onConflict: "id", ignoreDuplicates: false });
       if (error) throw error;
       if (de_mim) continue;
+      // post novo que ainda não está na biblioteca? busca na hora, para o comentário aparecer com capa e link
+      if (v.media?.id) {
+        const { data: mExiste } = await db.from("ig_midias").select("id").eq("id", v.media.id).maybeSingle();
+        if (!mExiste) {
+          try {
+            const tok = await tokenDaConta(conta_id);
+            if (tok) {
+              const m = await graph(v.media.id, tok, { fields: "id,caption,media_type,media_product_type,media_url,permalink,thumbnail_url,timestamp,like_count,comments_count" });
+              await db.from("ig_midias").upsert({ id: m.id, conta_id, tipo: m.media_type, produto: m.media_product_type, legenda: m.caption || "", url: m.media_url, thumb: m.thumbnail_url || (m.media_type !== "VIDEO" ? m.media_url : null), permalink: m.permalink, publicado_em: m.timestamp, curtidas: m.like_count ?? 0, comentarios: m.comments_count ?? 0 });
+            }
+          } catch (e) { await log("erro", conta_id, { onde: "midia do comentário", erro: String(e).slice(0, 200) }); }
+        }
+      }
       // conta o comentário na mídia
       await db.rpc("ig_inc_comentarios", { p_midia: v.media?.id }).then(() => {}, () => {});
       // fluxo CP: lead com o comentário (para a resposta privada pela API) + entra no fluxo configurado

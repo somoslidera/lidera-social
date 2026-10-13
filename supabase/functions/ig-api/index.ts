@@ -10,6 +10,7 @@
 // Deploy: supabase functions deploy ig-api --project-ref fvcbxorfstqqeewocxkf --use-api --no-verify-jwt
 import { admin, CORS, CRON_SECRET, gemini, graph, graphPost, hoje, json, log, saudacao, SUPABASE_URL, tokenDaConta, usuarioAutorizado } from "../_shared/ig.ts";
 import { ETAPAS, limiteDiario, PLAYBOOK_IA, STORY_CAPTURA } from "../_shared/playbook.ts";
+import { parseJSON } from "../_shared/ig.ts";
 import { BLOCO_POR_FLUXO, FLUXOS_PADRAO, Fluxo, Passo, preencher, temPlaceholder, TIPO_PARA_ACAO } from "../_shared/fluxos.ts";
 
 type Row = Record<string, unknown>;
@@ -308,7 +309,7 @@ Responda SÓ JSON com:
 {"icp":"passa|nao_passa|indefinido","concorrente":false,"motivo":"1 linha","nome":"primeiro nome provável ou vazio","restaurante":"nome ou vazio","cidade":"ou vazio","segmento":"self-service|a quilo|churrascaria|marmitaria|pizzaria|delivery|bar|outro|desconhecido","porte":"pequeno|medio|rede","sinais":["..."],"modelo":1-12,"conexao":"o detalhe específico, verdadeiro, tirado do perfil (sem elogio genérico)","pergunta_factual":"uma pergunta de zero esforço","mensagem":"a mensagem completa de ativação (versão A), 3 a 4 linhas, pronta para colar","pesquisa_profunda":true|false (true SÓ para rede, franquia, multi-unidade ou operação claramente grande; para perfil pessoal, pequeno ou sem dados use false)}`;
   let ia: Row = {};
   if (concorrente) ia = { icp: "nao_passa", motivo: "CONCORRENTE: o perfil vende consultoria, mentoria, treinamento ou serviço para donos de restaurante (" + concorrente + "). Não abordar.", concorrente: true, modelo: null };
-  else try { ia = JSON.parse(await gemini(prompt, { json: true, temp: 0.6 })); if (ia.concorrente === true) { ia.icp = "nao_passa"; ia.motivo = "CONCORRENTE (IA): " + (ia.motivo || ""); } } catch (e) { ia = { erro: String(e).slice(0, 200) }; }
+  else try { ia = parseJSON(await gemini(prompt, { json: true, temp: 0.6 })); if (ia.concorrente === true) { ia.icp = "nao_passa"; ia.motivo = "CONCORRENTE (IA): " + (ia.motivo || ""); } } catch (e) { ia = { erro: String(e).slice(0, 200) }; }
   const { data: ex } = await db.from("ig_leads").select("id").eq("conta_id", conta_id).eq("username", username).maybeSingle();
   const row: Row = {
     conta_id, username, fluxo, perfil, icp: (ia.icp as string) || "indefinido",
@@ -339,7 +340,7 @@ TAREFA: um seguidor comentou num post do Charles. Escreva a resposta PÚBLICA (1
 Legenda do post: ${(c.ig_midias?.legenda || "").slice(0, 800)}
 Comentário de @${c.autor_username}: ${c.texto}
 Responda SÓ JSON: {"resposta_publica":"...","abridor_direct":"...","ehLead":true|false,"motivo":"1 linha"}`;
-    const ia = JSON.parse(await gemini(prompt, { json: true }));
+    const ia = parseJSON(await gemini(prompt, { json: true }));
     await db.from("ig_comentarios").update({ sugestao_ia: ia.resposta_publica }).eq("id", id);
     return ia;
   }
@@ -356,7 +357,7 @@ Histórico (mais antigo primeiro):
 ${hist || "(sem mensagens ainda)"}
 
 Responda SÓ JSON: {"camada":0-4,"degrau":0-4,"mensagem":"...","etapa_sugerida":"novo|aquecendo|ativado|rmv|desafio|escada|convite|agendado_charles|agendado_guilherme|frio|fora_icp","desafio":"frase LITERAL do lead sobre o desafio, se apareceu, senão vazio","ganho":"frase LITERAL do degrau 4, se apareceu, senão vazio","faixa":"ate100|100a300|300a500|acima500|","objecao":"nome da objeção se houver, senão vazio","observacao":"1 linha para o SDR"}`;
-  const ia = JSON.parse(await gemini(prompt, { json: true, temp: 0.7 }));
+  const ia = parseJSON(await gemini(prompt, { json: true, temp: 0.7 }));
   // atualiza o lead com o que a IA extraiu (sem sobrescrever o que já tem)
   if (cv.lead_id) {
     const upd: Row = {};
@@ -375,7 +376,7 @@ async function classificarMidias(conta_id: string) {
   const prompt = `Classifique cada post do Instagram de um consultor de restaurantes no motor de conteúdo "3 por 2": dor (dor nomeada do dono), bastidor (caso real sem nome), ensino (prática: CMV, folha, precificação), convite (convite ao diagnóstico), resultado (resultado de cliente com número), outro.
 Posts: ${JSON.stringify(ms.map((m) => ({ id: m.id, legenda: (m.legenda || "").slice(0, 300) })))}
 Responda SÓ JSON: {"<id>":"categoria", ...}`;
-  const ia = JSON.parse(await gemini(prompt, { json: true, temp: 0.2 }));
+  const ia = parseJSON(await gemini(prompt, { json: true, temp: 0.2 }));
   let n = 0;
   for (const [id, cat] of Object.entries(ia)) { await db.from("ig_midias").update({ categoria: String(cat) }).eq("id", id); n++; }
   return { n };
@@ -402,7 +403,7 @@ Posts que mais engajaram desta conta (para referência de estilo): ${JSON.string
   else if (modo === "reel") tarefa = `Escreva o roteiro de um reel de 30 a 45 segundos ${cat ? `da categoria ${cat} ` : ""}sobre: ${tema}. Responda SÓ JSON: {"titulo":"...","gancho":"os 3 primeiros segundos, falado","roteiro":"[0-3s] ...\\n[3-15s] ...\\n[15-35s] ...\\n[35-45s] CTA","legenda":"legenda de 3 a 5 linhas","cta":"...","hashtags":"..."}`;
   else if (modo === "story") tarefa = `Crie uma sequência de 3 a 4 stories ${cat ? `da categoria ${cat} ` : ""}sobre: ${tema}. Um deles deve ser de captura (enquete, quiz ou caixinha) com a pergunta pronta. Responda SÓ JSON: {"titulo":"...","roteiro":"Story 1 (texto na tela + o que falar)...\\nStory 2...\\nStory 3 (CAPTURA: enquete/quiz/caixinha com as opções)...","legenda":"","cta":"...","hashtags":""}`;
   else if (modo === "reescrever") tarefa = `Reescreva o texto abaixo no tom descrito, mantendo o sentido, mais curto e mais forte. Texto:\n${String(body.texto || "")}\nResponda SÓ JSON: {"legenda":"texto reescrito"}`;
-  const out = JSON.parse(await gemini(base + "\n" + tarefa + (body.tom ? `\nAjuste de tom pedido: ${body.tom}` : ""), { json: true, temp: 0.8 }));
+  const out = parseJSON(await gemini(base + "\n" + tarefa + (body.tom ? `\nAjuste de tom pedido: ${body.tom}` : ""), { json: true, temp: 0.8 }));
   return out;
 }
 
@@ -512,6 +513,7 @@ async function executarFluxos(conta_id: string) {
           if (msgs >= limite) continue;
           if (!a.texto || temPlaceholder(a.texto)) continue; // texto incompleto fica para a pessoa
           if (l?.icp === "nao_passa") { await db.from("ig_acoes").update({ status: "pulada", feita_por: "api" }).eq("id", a.id); continue; }
+          if (l?.icp !== "passa") continue; // "a confirmar" não recebe DM sozinho: fica na fila para a pessoa aprovar
           let enviado = false;
           // canal 1: conversa já aberta no direct
           const { data: cv } = await db.from("ig_conversas").select("id,participante_id").eq("conta_id", cid).eq("lead_id", a.lead_id).maybeSingle();
