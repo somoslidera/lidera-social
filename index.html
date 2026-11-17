@@ -680,7 +680,7 @@ function tkAtualiza(){if(!$('#tk_priv'))return;const o=tkLer();const direto=o.mo
   const er=tkErro(o);const b=$('#tk_btn');b.disabled=!!er;b.style.opacity=er?.5:1;b.title=er;$('#tk_msg').textContent=er&&o.comercial&&!o.sua_marca&&!o.conteudo_marca?er:''}
 // Publicar agora: salva o post com as escolhas, envia e acompanha o status na própria tela
 async function tkPublicarAgora(){const o=tkLer();const er=tkErro(o);if(er)return toast(er,5000);if(!$('#pl_url').value)return toast('Envie o vídeo antes de publicar no TikTok',4000);if($('#pl_tipo').value!=='reel')return toast('O TikTok recebe só vídeo (formato reel).',4000);
-  const direto=o.modo==='direto';if(!confirm(direto?`Publicar agora no TikTok @${tkInfo.usuario}, visível para: ${TK_PRIV[o.privacidade]}?`:`Enviar agora como rascunho para a caixa de entrada do TikTok @${tkInfo.usuario}?`))return;
+  const direto=o.modo==='direto';
   const row={...lerPlan()};if(row.status==='ideia'||row.status==='rascunho')row.status='pronto';row.tiktok_status='pendente';const id=plAtual&&plAtual.id;let r;if(id)r=await sb.from('ig_planejados').update(row).eq('id',id).select('*').single();else r=await sb.from('ig_planejados').insert(row).select('*').single();if(r.error)return toast(r.error.message);plAtual=r.data;
   const st=$('#tk_st');st.style.display='';st.textContent='TikTok: enviando…';$('#tk_btn').disabled=true;
   try{await api('/tiktok/publicar',{planejado_id:plAtual.id})}catch(e){st.textContent='TikTok: erro';st.className='pill hot';toast('TikTok: '+e.message,8000);$('#tk_btn').disabled=false;return}
