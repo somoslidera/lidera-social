@@ -287,6 +287,7 @@ async function iniciar(){const {data:{session}}=await sb.auth.getSession();if(!s
   $('#login').style.display='none';$('#app').style.display='block';$('#userLbl').textContent=(S.user.email||'').split('@')[0];
   await carregarContas();renderNav();
   const q=new URLSearchParams(location.search);if(q.get('conectado')){toast('@'+q.get('conectado')+' conectado. Sincronizando…');history.replaceState({},'',location.pathname)}
+  if(q.get('erro_conexao')){const m=q.get('erro_conexao');history.replaceState({},'',location.pathname+location.hash);setTimeout(()=>toast(m,15000),600)}
   realtime();const h=location.hash.replace('#','');aba(TELAS.some(t=>t[0]===h)?h:(S.contas.length?'hoje':'contas'))}
 async function carregarContas(){const {data}=await sb.from('ig_contas').select('*').order('conectado_em');S.contas=(data||[]).filter(c=>!String(c.username).startsWith('pendente_'));
   let salva=null;try{salva=localStorage.getItem('conta')}catch{}S.conta=S.contas.find(c=>c.id===salva)||S.contas[0]||null;renderAcct();badges()}
